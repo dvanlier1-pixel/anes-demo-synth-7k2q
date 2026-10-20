@@ -1,4 +1,4 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="robots" content="noindex,nofollow"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Anesthesia charting demo (synthetic data only) rev 7</title><style>html,body{margin:0;background:#fff}#demo-root{--ink:#251f21;--ink2:#585254;--rule:#d9d6d7;--teal:#2f7f6d;--red:#c4202c;--sand:#f4efec}
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="robots" content="noindex,nofollow"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Anesthesia charting demo (synthetic data only) rev 8</title><style>html,body{margin:0;background:#fff}#demo-root{--ink:#251f21;--ink2:#585254;--rule:#d9d6d7;--teal:#2f7f6d;--red:#c4202c;--sand:#f4efec}
 #demo-root *{box-sizing:border-box}
 #demo-root{margin:0;font:15px/1.4 system-ui,Arial,sans-serif;color:var(--ink);background:#fff}
 #demo-root #banner{position:static;top:0;z-index:5;background:#fff4d6;border-bottom:2px solid #d9b44a;padding:6px 12px;font-weight:600;font-size:13px}
@@ -746,11 +746,19 @@ function initUI(){setupInit();saveInit();
   $('#capture').onclick=doCapture;$('#step').onclick=()=>tick(1);$('#step5').onclick=()=>{for(let i=0;i<5;i++){tick(1);autoCheck()}};
   let timer=null;$('#run').onclick=()=>{S.running=!S.running;$('#run').textContent=S.running?'Pause':'Run';if(S.running){timer=setInterval(()=>{tick(1);autoCheck()},1500)}else clearInterval(timer)};
   function autoCheck(){if($('#auto').checked&&S.clock-autoLast>=5){autoLast=S.clock;doCapture()}}
-  const vid=document.createElement('video');vid.id='vid';vid.muted=true;vid.playsInline=true;vid.style.display='none';document.body.appendChild(vid);
+  const vid=document.createElement('video');vid.id='vid';vid.muted=true;vid.playsInline=true;vid.setAttribute('playsinline','');vid.setAttribute('muted','');vid.style.cssText='position:fixed;left:0;bottom:0;width:2px;height:2px;opacity:0.01;pointer-events:none';document.body.appendChild(vid);
   $('#src').onchange=e=>{S.src=e.target.value;$('#file').style.display=S.src==='img'?'':'none';$('#camstart').style.display=S.src==='cam'?'':'none';
     $('#srcnote').textContent=S.src==='cam'?'Experimental. Aim the camera only at the monitor screen, keep faces out of frame. The reader expects the Passport 2 style layout filling the frame; it is uncalibrated and has not been tested on a real monitor.':S.src==='img'?'Upload an image or screenshot of a monitor screen (use made-up or de-identified only). Stretched to the 16:9 frame. Not validated on real photos.':'';refreshView()};
   $('#file').onchange=e=>{const f=e.target.files[0];if(!f)return;const im=new Image();im.onload=()=>{S.srcImg=im;refreshView()};im.src=URL.createObjectURL(f)};
-  $('#camstart').onclick=async()=>{try{S.stream=await navigator.mediaDevices.getUserMedia({video:Object.assign({width:1280,height:720},S.camId?{deviceId:{exact:S.camId}}:{})});vid.srcObject=S.stream;camPopulate();await vid.play();(function loop(){if(S.src==='cam'&&S.stream){vctx.drawImage(vid,0,0,960,540)}requestAnimationFrame(loop)})();$('#srcnote').textContent='Camera running. Frames stay in this page. Press Capture reading now.'}catch(err){$('#srcnote').textContent='Camera not available: '+err.message}};
+  $('#camstart').onclick=async()=>{const note=$('#srcnote');try{if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){note.textContent='Camera not available: this browser or page does not offer camera access (needs https and a current browser).';return}
+    try{S.stream&&S.stream.getTracks().forEach(t=>t.stop())}catch(e){}S.stream=null;note.textContent='Starting camera...';
+    const dev=S.camId?{deviceId:{exact:S.camId}}:{};
+    const tries=[Object.assign({facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:720}},dev),Object.assign({facingMode:{ideal:'environment'}},dev),S.camId?dev:true];
+    let lastErr=null;for(const v of tries){try{S.stream=await navigator.mediaDevices.getUserMedia({video:v,audio:false});break}catch(e){lastErr=e;if(e&&(e.name==='NotAllowedError'||e.name==='SecurityError'))break}}
+    if(!S.stream)throw lastErr||new Error('no camera stream');
+    vid.srcObject=S.stream;camPopulate();try{await vid.play()}catch(e){}
+    if(!window.__camLoop){window.__camLoop=1;(function loop(){if(S.src==='cam'&&S.stream&&vid.readyState>=2){vctx.drawImage(vid,0,0,960,540)}requestAnimationFrame(loop)})()}
+    note.textContent='Camera running. Frames stay in this page. Press Capture reading now.'}catch(err){const n=err&&err.name||'Error';note.textContent='Camera not available ('+n+'): '+(err&&err.message||'')+(n==='NotAllowedError'?' Allow camera for this site in Chrome (lock icon in the address bar > Permissions), then tap Start camera again.':n==='NotReadableError'?' Another app may be using the camera. Close other camera apps and try again.':'')}};
   $('#cpng').onclick=()=>{const a=document.createElement('a');a.download='demo-anesthesia-chart.png';a.href=$('#chartcv').toDataURL('image/png');a.click()};
   $('#cprint').onclick=()=>{preparePrint();window.print()};
   $('#creset').onclick=()=>{if(!confirm('Clear all demo entries?'))return;S.readings=[];S.drugs=[];S.rhythm=[];S.lastCaptures=[];S.nibpRun=null;renderReview();renderDrugs();renderRhythm();renderChart();updateBadges()};
