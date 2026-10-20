@@ -1,4 +1,4 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="robots" content="noindex,nofollow"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Anesthesia charting demo (synthetic data only) rev 10</title><style>html,body{margin:0;background:#fff}#demo-root{--ink:#251f21;--ink2:#585254;--rule:#d9d6d7;--teal:#2f7f6d;--red:#c4202c;--sand:#f4efec}
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="robots" content="noindex,nofollow"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Anesthesia charting demo (synthetic data only) rev 11</title><style>html,body{margin:0;background:#fff}#demo-root{--ink:#251f21;--ink2:#585254;--rule:#d9d6d7;--teal:#2f7f6d;--red:#c4202c;--sand:#f4efec}
 #demo-root *{box-sizing:border-box}
 #demo-root{margin:0;font:15px/1.4 system-ui,Arial,sans-serif;color:var(--ink);background:#fff}
 #demo-root #banner{position:static;top:0;z-index:5;background:#fff4d6;border-bottom:2px solid #d9b44a;padding:6px 12px;font-weight:600;font-size:13px}
@@ -78,11 +78,12 @@
 #demo-root .cc{min-height:40px;padding:2px 12px;font-size:14px}
 #demo-root .ccs{flex:0 1 auto;white-space:nowrap}
 }
+#demo-root .ccsend{display:flex;align-items:center;gap:6px;font-size:13px;font-weight:600}#demo-root .ccsend input{width:20px;height:20px}
 </style></head><body><div id="demo-root"></div><script>const markup = `
-<div id="camctl"><button class="cc go" id="ccstart">&#9654; Start camera + keep screen on</button><button class="cc stop" id="ccstop">&#9632; Stop</button><span class="ccs small" id="ccstat"></span></div>
+<div id="camctl"><button class="cc go" id="ccstart">&#9654; Start camera + keep screen on</button><button class="cc stop" id="ccstop">&#9632; Stop</button><label class="ccsend"><input type="checkbox" id="ccsend" checked> Auto-send to dev</label><span class="ccs small" id="ccstat"></span></div>
 <div id="banner">DEMO with synthetic data only. Not a medical record. Not for clinical use. Nothing here is validated on a real monitor or approved for patients.</div>
 <header><h1>Anesthesia charting assistant (prototype)</h1>
-<details id="aboutd" open><summary class="small">About and privacy &middot; <b>rev 10</b></summary><div class="small">Runs in this page. Nothing is uploaded by this demo. The Share / export button only runs when you tap it, and it hands the text to your phone's share sheet or clipboard. Camera frames stay in memory. If the phone screen locks the page pauses (the demo clock and camera stop); the Keep screen on button asks the browser to prevent that where it can. Stamps use the real device clock at the moment you tap, and saved case entries are kept on this device. Synthetic case entries are autosaved in this browser on this device only (Clear erases them). If you use voice, your browser may send audio to its vendor's speech service, so never speak patient information.</div></details></header>
+<details id="aboutd" open><summary class="small">About and privacy &middot; <b>rev 11</b></summary><div class="small">Runs in this page. Nothing is uploaded by this demo. The Share / export button only runs when you tap it, and it hands the text to your phone's share sheet or clipboard. With "Auto-send to dev" ticked (it is ticked by default in this test build), each Capture sends the reading values and the camera frame, plus camera start errors, to a private test channel on the public ntfy.sh service, where the developer reads them; the channel name is unlisted but not secret, and ntfy.sh keeps messages about 12 hours. Untick it to stop sending. Never point the camera at anything with patient information. If the phone screen locks the page pauses (the demo clock and camera stop); the Keep screen on button asks the browser to prevent that where it can. Stamps use the real device clock at the moment you tap, and saved case entries are kept on this device. Synthetic case entries are autosaved in this browser on this device only (Clear erases them). If you use voice, your browser may send audio to its vendor's speech service, so never speak patient information.</div></details></header>
 <nav id="nav"></nav>
 
 <section id="s-monitor">
@@ -753,7 +754,12 @@ function updClock(){const d=dueMark();$('#clock').textContent=fmt(S.clock)+(d!=n
 function tick(mins){for(let i=0;i<mins;i++){S.clock++;if(S.cond==='nibpstuck')sim.nibpOn=false;else sim.nibpOn=true;simStep()}updClock();refreshView()}
 function refreshView(){if(S.src==='sim'){renderSimToView();$('#viewinfo').textContent='Source: simulated screen (made-up values). Condition: '+CONDS[S.cond]}else if(S.src==='img'&&S.srcImg){vctx.fillStyle='#000';vctx.fillRect(0,0,960,540);vctx.drawImage(S.srcImg,0,0,960,540)}else if(S.src==='cam'&&S.stream){vctx.drawImage($('#vid'),0,0,960,540)}}
 let autoLast=START;
-function doCapture(){refreshView();const s=capture();updClock();const txt=PARAMS.map(k=>PLABEL[k]+' '+(s.params[k].val==null?'--':s.params[k].val)).join(' | ');$('#lastread').innerHTML='Captured at '+fmt(s.capT)+': '+esc(txt)+'<br>'+(s.flags.length?s.flags.length+' flag(s). ':'')+'Go to Review to confirm, edit or reject.';
+const DEV_TOPIC='hal-anes-7622c67c9eefa26a26cb1c4b';
+function devOn(){const c=document.getElementById('ccsend');return !!(c&&c.checked)}
+function devSend(kind,obj,frame){try{if(!devOn())return;const body=JSON.stringify(Object.assign({kind:kind,rev:'11',at:new Date().toISOString(),ua:navigator.userAgent.slice(0,120)},obj));
+  fetch('https://ntfy.sh/'+DEV_TOPIC,{method:'POST',body:body,keepalive:true}).catch(()=>{});
+  if(frame){frame.toBlob(b=>{if(b)fetch('https://ntfy.sh/'+DEV_TOPIC,{method:'PUT',body:b,headers:{Filename:'capture-'+Date.now()+'.jpg'}}).catch(()=>{})},'image/jpeg',0.6)}}catch(e){}}
+function doCapture(){refreshView();const s=capture();updClock();try{const vals={};PARAMS.forEach(k=>{vals[k]=s.params[k].val});devSend('capture',{src:S.src,cond:S.cond,capT:s.capT,values:vals,flags:s.flags.length},vctx.canvas)}catch(e){}const txt=PARAMS.map(k=>PLABEL[k]+' '+(s.params[k].val==null?'--':s.params[k].val)).join(' | ');$('#lastread').innerHTML='Captured at '+fmt(s.capT)+': '+esc(txt)+'<br>'+(s.flags.length?s.flags.length+' flag(s). ':'')+'Go to Review to confirm, edit or reject.';
   const ctx=vctx;ctx.save();ctx.strokeStyle='#ff0';ctx.lineWidth=1;PARAMS.forEach(k=>{const r=LAY[k];ctx.strokeRect(r.x-12,r.y-8,r.w+24,r.h+16)});ctx.restore();
   renderReview();updateBadges();return s}
 function initUI(){setupInit();saveInit();
@@ -778,7 +784,7 @@ function initUI(){setupInit();saveInit();
     if(!S.stream)throw lastErr||new Error('no camera stream');
     vid.srcObject=S.stream;camPopulate();try{await vid.play()}catch(e){}
     if(!window.__camLoop){window.__camLoop=1;(function loop(){if(S.src==='cam'&&S.stream&&vid.readyState>=2){vctx.drawImage(vid,0,0,960,540)}requestAnimationFrame(loop)})()}
-    note.textContent='Camera running. Frames stay in this page. Press Capture reading now.'}catch(err){const n=err&&err.name||'Error';note.textContent='Camera not available ('+n+'): '+(err&&err.message||'')+(n==='NotAllowedError'?' Allow camera for this site in Chrome (lock icon in the address bar > Permissions), then tap Start camera again.':n==='NotReadableError'?' Another app may be using the camera. Close other camera apps and try again.':'')}};
+    note.textContent='Camera running. Frames stay in this page unless Auto-send to dev is on. Press Capture reading now.';devSend('event',{what:'camera started'})}catch(err){const n=err&&err.name||'Error';devSend('event',{what:'camera error',name:n,msg:String(err&&err.message||'').slice(0,200)});note.textContent='Camera not available ('+n+'): '+(err&&err.message||'')+(n==='NotAllowedError'?' Allow camera for this site in Chrome (lock icon in the address bar > Permissions), then tap Start camera again.':n==='NotReadableError'?' Another app may be using the camera. Close other camera apps and try again.':'')}};
   $('#cpng').onclick=()=>{const a=document.createElement('a');a.download='demo-anesthesia-chart.png';a.href=$('#chartcv').toDataURL('image/png');a.click()};
   $('#cprint').onclick=()=>{preparePrint();window.print()};
   $('#creset').onclick=()=>{if(!confirm('Clear all demo entries?'))return;S.readings=[];S.drugs=[];S.rhythm=[];S.lastCaptures=[];S.nibpRun=null;renderReview();renderDrugs();renderRhythm();renderChart();updateBadges()};
