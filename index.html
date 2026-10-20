@@ -1,4 +1,4 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="robots" content="noindex,nofollow"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Anesthesia charting demo (synthetic data only) rev 24</title><style>html,body{margin:0;background:#fff}#demo-root{--ink:#251f21;--ink2:#585254;--rule:#d9d6d7;--teal:#2f7f6d;--red:#c4202c;--sand:#f4efec}
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="robots" content="noindex,nofollow"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Anesthesia charting demo (synthetic data only) rev 25</title><style>html,body{margin:0;background:#fff}#demo-root{--ink:#251f21;--ink2:#585254;--rule:#d9d6d7;--teal:#2f7f6d;--red:#c4202c;--sand:#f4efec}
 #demo-root *{box-sizing:border-box}
 #demo-root{margin:0;font:15px/1.4 system-ui,Arial,sans-serif;color:var(--ink);background:#fff}
 #demo-root #banner{position:static;top:0;z-index:5;background:#fff4d6;border-bottom:2px solid #d9b44a;padding:6px 12px;font-weight:600;font-size:13px}
@@ -99,6 +99,10 @@ body.camonly #demo-root #condcard,body.camonly #demo-root .srclbl{display:none!i
 #demo-root #timebar{position:static!important}
 }
 body.pairentry #demo-root #camctl{position:static!important}
+
+#demo-root .chips{display:flex;flex-wrap:wrap;gap:6px;max-height:210px;overflow-y:auto}
+#demo-root .chip{border:1.5px solid var(--ink);border-radius:18px;background:#fff;font:inherit;font-size:15px;padding:6px 12px;min-height:38px;cursor:pointer}
+#demo-root .chip.on{background:var(--ink);color:#fff}#demo-root .chip .chk{color:#06c;font-size:10px}
 </style></head><body><div id="demo-root"></div><script>const markup = `
 <div id="camctl"><button class="cc go" id="ccstart">&#9654; Start camera + keep screen on</button><span id="ccind" class="ccind off"><i class="dot"></i><span id="ccindt">camera off</span></span><button class="cc" id="ccrot" style="flex:0 0 auto">&#8635; Rotate view</button><button class="cc stop" id="ccstop">&#9632; Stop</button><label class="ccsend" id="ccsnaplbl"><input type="checkbox" id="ccsnap" checked> Live snapshot to entry phone</label><label class="ccsend"><input type="checkbox" id="ccsend" checked> Auto-send to dev</label><label class="ccsend"><input type="checkbox" id="ccauto" checked> Auto-capture every 5 min</label><span class="ccs small" id="ccnext"></span><button class="cc" id="ccpair" style="flex:0 0 auto">Phone role</button><span class="ccs small" id="ccpairst"></span><span class="ccs small" id="ccstat"></span></div>
 <div id="vtab" style="display:none;padding:6px 12px;background:#fff;border-bottom:2px solid #999"></div>
@@ -106,7 +110,7 @@ body.pairentry #demo-root #camctl{position:static!important}
 <div id="pairpanel" style="display:none;padding:8px 12px;border-bottom:2px solid #999;background:#f3f6ff" class="small"></div>
 <div id="banner">DEMO with synthetic data only. Not a medical record. Not for clinical use. Nothing here is validated on a real monitor or approved for patients.</div>
 <header><h1>Anesthesia charting assistant (prototype)</h1>
-<details id="aboutd" open><summary class="small">About and privacy &middot; <b>rev 24</b></summary><div class="small">Runs in this page. Nothing is uploaded by this demo. The Share / export button only runs when you tap it, and it hands the text to your phone's share sheet or clipboard. With "Auto-send to dev" ticked (it is ticked by default in this test build), each Capture sends the reading values and the camera frame, plus camera start errors, to a private test channel on the public ntfy.sh service, where the developer reads them; the channel name is unlisted but not secret, and ntfy.sh keeps messages about 12 hours. Untick it to stop sending. If you pair two phones, the camera phone sends only the reading numbers and a time (no photo) to a private room channel on ntfy.sh, which the other phone reads; enter no patient identifiers anywhere. Never point the camera at anything with patient information. If the phone screen locks the page pauses (the demo clock and camera stop); the Keep screen on button asks the browser to prevent that where it can. Stamps use the real device clock at the moment you tap, and saved case entries are kept on this device. Synthetic case entries are autosaved in this browser on this device only (Clear erases them). If you use voice, your browser may send audio to its vendor's speech service, so never speak patient information.</div></details></header>
+<details id="aboutd" open><summary class="small">About and privacy &middot; <b>rev 25</b></summary><div class="small">Runs in this page. Nothing is uploaded by this demo. The Share / export button only runs when you tap it, and it hands the text to your phone's share sheet or clipboard. With "Auto-send to dev" ticked (it is ticked by default in this test build), each Capture sends the reading values and the camera frame, plus camera start errors, to a private test channel on the public ntfy.sh service, where the developer reads them; the channel name is unlisted but not secret, and ntfy.sh keeps messages about 12 hours. Untick it to stop sending. If you pair two phones, the camera phone sends only the reading numbers and a time (no photo) to a private room channel on ntfy.sh, which the other phone reads; enter no patient identifiers anywhere. Never point the camera at anything with patient information. If the phone screen locks the page pauses (the demo clock and camera stop); the Keep screen on button asks the browser to prevent that where it can. Stamps use the real device clock at the moment you tap, and saved case entries are kept on this device. Synthetic case entries are autosaved in this browser on this device only (Clear erases them). If you use voice, your browser may send audio to its vendor's speech service, so never speak patient information.</div></details></header>
 <nav id="nav"></nav>
 
 <section id="s-monitor">
@@ -154,7 +158,11 @@ body.pairentry #demo-root #camctl{position:static!important}
  <div class="small">Rhythm is entered by you, usually every 15 min. SR (sinus rhythm) is pre-filled as a default you can change. It is not detected by the tool, never inferred from the heart rate, and goes to the chart only after you confirm it. Confirm before it reaches the chart (up to 6 characters on the chart).</div>
  <div class="row" style="margin:6px 0"><input id="rtext" size="8" maxlength="6" list="rlist" value="SR" placeholder="e.g. SR"><datalist id="rlist"><option value="SR"><option value="AF"><option value="Paced"></datalist> time <input id="rtime" size="6" placeholder="HH:MM or blank = now"> <button class="b p" id="radd">Add rhythm</button></div>
  <div id="rhythmlist"></div></div>
- <div class="row">
+ <div class="card" style="margin:8px 0"><b>Pick a drug (generic names)</b> <span class="small">&#9679; = has a row on the chart. The others are logged and listed under the chart but not plotted. You enter dose and time yourself; the tool suggests nothing.</span>
+ <input id="dfilter" placeholder="Type to filter, e.g. roc" style="width:100%;margin:6px 0;font-size:16px;padding:8px" autocomplete="off">
+ <div id="dchips" class="chips"></div>
+ <div id="dform" style="display:none;margin-top:8px"><b id="dsel"></b> dose <input id="ddose" inputmode="decimal" size="6" placeholder="dose"> <select id="dunit"></select> time <input id="dtime" size="6" placeholder="HH:MM or blank = now"> <button class="b p" type="button" id="dadd">Add to case</button> <button class="b" type="button" id="dclr">Clear</button></div></div>
+<div class="row">
   <div style="flex:1;min-width:280px">
    <textarea id="dtext" rows="2" style="width:100%" placeholder='e.g. "fentanyl 50 mcg at 9:15" or "propofol 100 mg now" or "zofran 4 mg 10 minutes ago"'></textarea>
    <button class="b p" id="dparse">Parse entry</button>
@@ -188,9 +196,11 @@ let __started=false;
 
 const $=s=>document.querySelector(s);
 const FONT='Arial,"Liberation Sans",Helvetica,sans-serif';
-const START=540; // 09:00 case clock start (minutes)
+const __SIM=(typeof location!=='undefined'&&/[?&]sim=1/.test(location.search));
+const __nowMin=()=>{const t=new Date();return t.getHours()*60+t.getMinutes()};
+let START=__SIM?540:Math.floor(__nowMin()/15)*15; // case clock start (minutes): 09:00 in sim mode, otherwise the current quarter hour (device time)
 const fmt=m=>{m=Math.round(m);const h=Math.floor(m/60)%24,mm=((m%60)+60)%60;return String(h).padStart(2,'0')+':'+String(mm).padStart(2,'0')};
-const S={clock:START,running:false,readings:[],drugs:[],sim:null,seq:0,frozen:false,lastCaptures:[],src:'sim',cond:'none',srcImg:null,stream:null};
+const S={clock:(typeof __nowMin==='function'&&!__SIM)?__nowMin():START,running:false,readings:[],drugs:[],sim:null,seq:0,frozen:false,lastCaptures:[],src:'sim',cond:'none',srcImg:null,stream:null};
 const wall=()=>new Date().toISOString();
 let uid=0;const nid=p=>p+(++uid);
 
@@ -356,23 +366,53 @@ function capture(){
   const res=(S.src==='cam'?readFrameCam(vcv):readFrame(vcv));const sig=frameSig(vcv);return newSet(res,sig)}
 /* ---------- drugs ---------- */
 const DRUGS=[
- {id:'lidocaine',name:'Lidocaine',unit:'mg',row:0,al:['lidocaine','lido','xylocaine']},
- {id:'propofol',name:'Propofol',unit:'mg',row:1,al:['propofol','diprivan']},
- {id:'fentanyl',name:'Fentanyl',unit:'mcg',row:2,al:['fentanyl','fent'],ctrl:1},
- {id:'demerol',name:'Demerol',unit:'mg',row:3,al:['demerol','meperidine'],ctrl:1},
- {id:'dilaudid',name:'Dilaudid',unit:'mg',row:4,al:['dilaudid','hydromorphone'],ctrl:1},
- {id:'versed',name:'Versed',unit:'mg',row:5,al:['versed','midazolam'],ctrl:1},
- {id:'ancef',name:'Ancef',unit:'g',row:6,al:['ancef','cefazolin']},
- {id:'clinda',name:'Clindamycin',unit:'mg',row:6,al:['clindamycin','clinda','cleocin']},
- {id:'glyco',name:'Glycopyrrolate',unit:'mg',row:7,al:['glycopyrrolate','glyco','robinul']},
- {id:'decadron',name:'Decadron',unit:'mg',row:8,al:['decadron','dexamethasone','dex']},
- {id:'zofran',name:'Zofran',unit:'mg',row:9,al:['zofran','ondansetron']},
- {id:'toradol',name:'Toradol',unit:'mg',row:10,al:['toradol','ketorolac']},
- {id:'propgtt',name:'Propofol gtt',unit:'mcg/kg/min',row:11,al:[],gtt:1},
- {id:'txa',name:'TXA',unit:'g',row:12,al:['txa','tranexamic']}];
+ {id:'lidocaine',name:'Lidocaine',gen:'Lidocaine',unit:'mg',row:0,al:['lidocaine','lido','xylocaine']},
+ {id:'propofol',name:'Propofol',gen:'Propofol',unit:'mg',row:1,al:['propofol','diprivan']},
+ {id:'fentanyl',name:'Fentanyl',gen:'Fentanyl',unit:'mcg',row:2,al:['fentanyl','fent'],ctrl:1},
+ {id:'demerol',name:'Demerol',gen:'Meperidine',unit:'mg',row:3,al:['demerol','meperidine'],ctrl:1},
+ {id:'dilaudid',name:'Dilaudid',gen:'Hydromorphone',unit:'mg',row:4,al:['dilaudid','hydromorphone'],ctrl:1},
+ {id:'versed',name:'Versed',gen:'Midazolam',unit:'mg',row:5,al:['versed','midazolam'],ctrl:1},
+ {id:'ancef',name:'Ancef',gen:'Cefazolin',unit:'g',row:6,al:['ancef','cefazolin']},
+ {id:'clinda',name:'Clindamycin',gen:'Clindamycin',unit:'mg',row:6,al:['clindamycin','clinda','cleocin']},
+ {id:'glyco',name:'Glycopyrrolate',gen:'Glycopyrrolate',unit:'mg',row:7,al:['glycopyrrolate','glyco','robinul']},
+ {id:'decadron',name:'Decadron',gen:'Dexamethasone',unit:'mg',row:8,al:['decadron','dexamethasone','dex']},
+ {id:'zofran',name:'Zofran',gen:'Ondansetron',unit:'mg',row:9,al:['zofran','ondansetron']},
+ {id:'toradol',name:'Toradol',gen:'Ketorolac',unit:'mg',row:10,al:['toradol','ketorolac']},
+ {id:'propgtt',name:'Propofol gtt',gen:'Propofol infusion',unit:'mcg/kg/min',row:11,al:[],gtt:1},
+ {id:'txa',name:'TXA',gen:'Tranexamic acid',unit:'g',row:12,al:['txa','tranexamic']},
+ {id:'rocuronium',name:'Rocuronium',gen:'Rocuronium',unit:'mg',row:null,al:['rocuronium','roc','zemuron']},
+ {id:'succ',name:'Succinylcholine',gen:'Succinylcholine',unit:'mg',row:null,al:['succinylcholine','succ','anectine']},
+ {id:'vecuronium',name:'Vecuronium',gen:'Vecuronium',unit:'mg',row:null,al:['vecuronium']},
+ {id:'cisatracurium',name:'Cisatracurium',gen:'Cisatracurium',unit:'mg',row:null,al:['cisatracurium','nimbex']},
+ {id:'ketamine',name:'Ketamine',gen:'Ketamine',unit:'mg',row:null,al:['ketamine','ketalar']},
+ {id:'etomidate',name:'Etomidate',gen:'Etomidate',unit:'mg',row:null,al:['etomidate','amidate']},
+ {id:'dexmed',name:'Dexmedetomidine',gen:'Dexmedetomidine',unit:'mcg',row:null,al:['dexmedetomidine','precedex']},
+ {id:'phenylephrine',name:'Phenylephrine',gen:'Phenylephrine',unit:'mcg',row:null,al:['phenylephrine','neosynephrine']},
+ {id:'ephedrine',name:'Ephedrine',gen:'Ephedrine',unit:'mg',row:null,al:['ephedrine']},
+ {id:'epinephrine',name:'Epinephrine',gen:'Epinephrine',unit:'mcg',row:null,al:['epinephrine','epi']},
+ {id:'atropine',name:'Atropine',gen:'Atropine',unit:'mg',row:null,al:['atropine']},
+ {id:'neostigmine',name:'Neostigmine',gen:'Neostigmine',unit:'mg',row:null,al:['neostigmine','bloxiverz']},
+ {id:'sugammadex',name:'Sugammadex',gen:'Sugammadex',unit:'mg',row:null,al:['sugammadex','bridion']},
+ {id:'naloxone',name:'Naloxone',gen:'Naloxone',unit:'mcg',row:null,al:['naloxone','narcan']},
+ {id:'labetalol',name:'Labetalol',gen:'Labetalol',unit:'mg',row:null,al:['labetalol']},
+ {id:'esmolol',name:'Esmolol',gen:'Esmolol',unit:'mg',row:null,al:['esmolol','brevibloc']},
+ {id:'hydralazine',name:'Hydralazine',gen:'Hydralazine',unit:'mg',row:null,al:['hydralazine']},
+ {id:'morphine',name:'Morphine',gen:'Morphine',unit:'mg',row:null,al:['morphine']},
+ {id:'remifentanil',name:'Remifentanil',gen:'Remifentanil',unit:'mcg',row:null,al:['remifentanil','ultiva']},
+ {id:'sufentanil',name:'Sufentanil',gen:'Sufentanil',unit:'mcg',row:null,al:['sufentanil']},
+ {id:'acetaminophen',name:'Acetaminophen',gen:'Acetaminophen',unit:'mg',row:null,al:['acetaminophen','tylenol','ofirmev']},
+ {id:'metoclopramide',name:'Metoclopramide',gen:'Metoclopramide',unit:'mg',row:null,al:['metoclopramide','reglan']},
+ {id:'famotidine',name:'Famotidine',gen:'Famotidine',unit:'mg',row:null,al:['famotidine','pepcid']},
+ {id:'diphenhydramine',name:'Diphenhydramine',gen:'Diphenhydramine',unit:'mg',row:null,al:['diphenhydramine','benadryl']},
+ {id:'vancomycin',name:'Vancomycin',gen:'Vancomycin',unit:'g',row:null,al:['vancomycin','vanc']},
+ {id:'bupivacaine',name:'Bupivacaine',gen:'Bupivacaine',unit:'mg',row:null,al:['bupivacaine','marcaine']},
+ {id:'ropivacaine',name:'Ropivacaine',gen:'Ropivacaine',unit:'mg',row:null,al:['ropivacaine','naropin']},
+ {id:'oxytocin',name:'Oxytocin',gen:'Oxytocin',unit:'units',row:null,al:['oxytocin','pitocin']},
+ {id:'nitroglycerin',name:'Nitroglycerin',gen:'Nitroglycerin',unit:'mcg',row:null,al:['nitroglycerin','nitro']},
+ {id:'calcium',name:'Calcium chloride',gen:'Calcium chloride',unit:'mg',row:null,al:['calcium']}];
 const ROWS=['Lidocaine (mg)','Propofol (mg)','Fentanyl (mcg)','Demerol (mg)','Dilaudid (mg)','Versed (mg)','Ancef (g) / Clindamycin (mg)','Glycopyrrolate (mg)','Decadron (mg)','Zofran (mg)','Toradol (mg)','Propofol gtt (mcg/kg/min)','TXA (g)','','',''];
 function lev(a,b){const d=[];for(let i=0;i<=a.length;i++){d[i]=[i];}for(let j=1;j<=b.length;j++)d[0][j]=j;for(let i=1;i<=a.length;i++)for(let j=1;j<=b.length;j++)d[i][j]=Math.min(d[i-1][j]+1,d[i][j-1]+1,d[i-1][j-1]+(a[i-1]===b[j-1]?0:1));return d[a.length][b.length]}
-function normUnit(u){if(!u)return null;u=u.toLowerCase();if(/^(mcg|mcgs|ug|microgram|micrograms)$/.test(u))return 'mcg';if(/^(mg|mgs|milligram|milligrams)$/.test(u))return 'mg';if(/^(g|gm|gram|grams)$/.test(u))return 'g';return null}
+function normUnit(u){if(!u)return null;u=u.toLowerCase();if(/^(mcg|mcgs|ug|microgram|micrograms)$/.test(u))return 'mcg';if(/^(mg|mgs|milligram|milligrams)$/.test(u))return 'mg';if(/^(g|gm|gram|grams)$/.test(u))return 'g';if(/^(unit|units|u)$/.test(u))return 'units';return null}
 function parseDrug(text,now){
   const out={raw:text,ok:false,drug:null,dose:null,unit:null,given:now,givenSrc:'now (entry time)',warn:[],hold:[],fuzzy:null};
   let t=' '+text.toLowerCase().replace(/[,;]/g,' ').replace(/\s+/g,' ')+' ';
@@ -523,6 +563,7 @@ function buildChartModel(){
       slots[i][k]={v:p.val,ed:p.edited};occ[i+k]=s.capT});});
   const rhy=S.rhythm.filter(r=>r.status==='confirmed'),rs={};rhy.forEach(r=>{const i=3*Math.floor((r.given-START)/15);if(i<0||i>=SLOTS){np.push(fmt(r.given)+' rhythm '+r.text+' (outside chart time range)');return}
     if(rs[i])np.push(fmt(rs[i].given)+' rhythm '+rs[i].text+' (replaced on chart by later entry in same 15-min block)');rs[i]=r});
+  meds.forEach(m=>{const dr=DRUGS.find(x=>x.id===m.drug);if(dr&&dr.row==null)np.push(fmt(m.given)+' '+dr.name+' '+m.dose+' '+m.unit+' (no row on this chart, listed here only)')});
   const rec={},usedSets=new Set();
   vit.forEach(s=>{if(s.recFor==null)return;const m=slotOf(s.recFor);if(m<0||m>=SLOTS)return;usedSets.add(s);rec[m]=rec[m]||{};C15.forEach(k=>{const v=s.params[k];if(v.val!=null)rec[m][k]={v:v.val,ed:v.edited,capT:s.capT,mt:s.recFor}})});
   vit.forEach(s=>{if(s.recFor==null&&C15.some(k=>s.params[k].val!=null))btw.push(fmt(s.capT))});
@@ -569,7 +610,7 @@ function renderChartTo(cv){
   const xOf=t=>gx0+(t-START)/30*cw;
   const rowY=r=>my0+12+r*mh+mh/2;
   const gtt=M.meds.filter(d=>d.drug==='propgtt').sort((a,b)=>a.given-b.given);
-  M.meds.forEach(d=>{const dr=DRUGS.find(x=>x.id===d.drug);if(!dr)return;const x=xOf(d.given);if(x<gx0||x>gx1)return;
+  M.meds.forEach(d=>{const dr=DRUGS.find(x=>x.id===d.drug);if(!dr||dr.row==null)return;const x=xOf(d.given);if(x<gx0||x>gx1)return;
     const y=rowY(dr.row);const lbl=(d.drug==='clinda'?'C ':'')+d.dose+(d.edited?'*':'');
     L(x,y-5,x,y+5,.5,'#06c');T(lbl,x+1.5,y,8,{b:1,col:'#06c'})});
   gtt.forEach((d,i)=>{const x=xOf(d.given),nx=gtt[i+1]?xOf(gtt[i+1].given):Math.min(gx1,xOf(Math.max(S.clock,d.given)));const y=rowY(11)+3.5;L(x+16,y,Math.max(x+16,nx),y,1,'#06c')});
@@ -636,7 +677,7 @@ function renderLogPages(){
   line('Case setup (date, times, checklists), status: '+S.setup.status.toUpperCase(),11,1,setupShown()?'#111':'#a00');line('Original defaults: '+(function(o){return 'date '+o.date+' (device date); checked: '+Object.keys(o.checks).filter(k=>o.checks[k]).map(setupLabel).join(', ')+'; times blank'})(S.setup.orig),9.5);line('Current: '+setupSummary()+'; positioning "'+S.setup.text.pos+'", LMA size "'+S.setup.text.size+'", attempts "'+S.setup.text.att+'"',9.5);
   S.setup.history.forEach(h=>line('   '+h.at.slice(11,19)+' UTC, case '+fmt(h.caseT)+', '+h.who+': '+h.what,8.5,0,'#333'));
   return pages}
-function renderChart(){const cv=$('#chartcv');if(!cv)return;renderChartTo(cv);const M=buildChartModel();$('#chartnote').textContent='Chart shows only confirmed items: '+M.meds.length+' drug entries, '+M.vit.length+' vitals sets, '+S.rhythm.filter(d=>d.status==='confirmed').length+' rhythm entries. other SpO2/CO2/RR capture sets (change log only): '+M.btw.length+'. Other confirmed items not plotted: '+M.np.length+' (listed under the chart). Pending: '+M.hidden.pending+'. Rejected: '+M.hidden.rejected+'. Case time is simulated.'}
+function renderChart(){const cv=$('#chartcv');if(!cv)return;renderChartTo(cv);const M=buildChartModel();$('#chartnote').textContent='Chart shows only confirmed items: '+M.meds.length+' drug entries, '+M.vit.length+' vitals sets, '+S.rhythm.filter(d=>d.status==='confirmed').length+' rhythm entries. other SpO2/CO2/RR capture sets (change log only): '+M.btw.length+'. Other confirmed items not plotted: '+M.np.length+' (listed under the chart). Pending: '+M.hidden.pending+'. Rejected: '+M.hidden.rejected+'. '+(__SIM?'Case time is simulated.':'Case time follows this phone clock (chart starts at '+fmt(START)+').')}
 function preparePrint(){const pa=$('#printarea');pa.innerHTML='';const a=document.createElement('canvas');a.width=2550;a.height=3300;renderChartTo(a);pa.appendChild(a);renderLogPages().forEach(p=>{pa.appendChild(p)})}
 /* ---------- case setup defaults (editable; pending until clinician confirms) ---------- */
 const SETUP_GROUPS=[
@@ -730,6 +771,7 @@ function initCamCtl(){try{pairInit()}catch(e){}const st=$('#ccstat'),bar=$('#cam
   $('#ccstop').onclick=()=>{try{if(window.__camStop)window.__camStop();const sel=$('#src');sel.value=DEFSRC;sel.dispatchEvent(new Event('change'));__wlWant=false;wlRelease();wlLabel()}catch(e){}sync()};
   setInterval(()=>{try{if(PAIR.role!=='cam'||!PAIR.room||!S.stream)return;const cb=document.getElementById('ccsnap');if(cb&&!cb.checked)return;const vc=vctx.canvas,por=vc.height>vc.width,sc=document.createElement('canvas');sc.width=por?180:320;sc.height=por?320:180;sc.getContext('2d').drawImage(vc,0,0,sc.width,sc.height);
     sc.toBlob(b=>{if(b)fetch('https://ntfy.sh/'+pairTopic()+'-snap',{method:'PUT',body:b,headers:{Filename:'s'+Date.now()+'.jpg'},keepalive:false}).catch(()=>{})},'image/jpeg',0.45)}catch(e){}},12000);
+  if(!__SIM)setInterval(()=>{try{const n=__nowMin();if(S.clock!==n){S.clock=n;updClock()}}catch(e){}},15000);
   let flashUntil=0;window.__camFlash=()=>{flashUntil=Date.now()+1500};let lastHbSent=0;
   setInterval(()=>{try{const el=document.getElementById('ccind'),t=document.getElementById('ccindt');if(!el||PAIR.role==='entry')return;const on=!!S.stream;
     el.className='ccind '+(Date.now()<flashUntil?'on flash':on?'on':'off');t.textContent=Date.now()<flashUntil?'CAPTURED':on?'CAMERA ON':'camera off';
@@ -756,10 +798,10 @@ function setupInit(){setupInitState();const sec=$('#s-drugs');if(sec&&!$('#setup
 const SAVE_KEY='anesthesia-demo-synthetic-case-v1';
 let __autosave=false,__saveErr='';
 function storeOK(){try{const k='__t';localStorage.setItem(k,'1');localStorage.removeItem(k);return true}catch(e){__saveErr=String(e&&e.name||e);return false}}
-function saveCase(key){key=key||SAVE_KEY;try{const o={v:1,savedAt:new Date().toISOString(),clock:S.clock,seq:S.seq,uid:uid,readings:S.readings,drugs:S.drugs,rhythm:S.rhythm,setup:S.setup};localStorage.setItem(key,JSON.stringify(o));return true}catch(e){__saveErr=String(e&&e.name||e);return false}}
+function saveCase(key){key=key||SAVE_KEY;try{const o={v:1,savedAt:new Date().toISOString(),clock:S.clock,start:START,seq:S.seq,uid:uid,readings:S.readings,drugs:S.drugs,rhythm:S.rhythm,setup:S.setup};localStorage.setItem(key,JSON.stringify(o));return true}catch(e){__saveErr=String(e&&e.name||e);return false}}
 function savedCaseInfo(key){try{const t=localStorage.getItem(key||SAVE_KEY);if(!t)return null;const o=JSON.parse(t);return o&&o.v===1?o:null}catch(e){return null}}
 function savedHasContent(o){return !!o&&((o.readings||[]).length||(o.drugs||[]).length||(o.rhythm||[]).length||(o.setup&&o.setup.history&&o.setup.history.length>1))}
-function restoreCase(key){const o=savedCaseInfo(key);if(!o)return false;S.readings=o.readings||[];S.drugs=o.drugs||[];S.rhythm=o.rhythm||[];S.setup=o.setup||S.setup;S.clock=o.clock;S.seq=o.seq||S.seq;uid=Math.max(uid,o.uid||0);S.lastCaptures=[];S.nibpRun=null;sim.nibpAt=S.clock;sim.nibpOn=true;return true}
+function restoreCase(key){const o=savedCaseInfo(key);if(!o)return false;S.readings=o.readings||[];S.drugs=o.drugs||[];S.rhythm=o.rhythm||[];S.setup=o.setup||S.setup;if(!__SIM&&typeof o.start==='number')START=o.start;S.clock=__SIM?o.clock:__nowMin();S.seq=o.seq||S.seq;uid=Math.max(uid,o.uid||0);S.lastCaptures=[];S.nibpRun=null;sim.nibpAt=S.clock;sim.nibpOn=true;return true}
 function clearSavedCase(key){try{localStorage.removeItem(key||SAVE_KEY)}catch(e){}}
 function resetCaseState(){S.readings=[];S.drugs=[];S.rhythm=[];S.lastCaptures=[];S.nibpRun=null;S.clock=START;sim.nibpAt=START-5;sim.nibpOn=true;setupInitState()}
 function renderSaveBar(){const el=$('#savebar');if(!el)return;const ok=storeOK(),raw=savedCaseInfo(),info=raw;
@@ -794,7 +836,7 @@ let autoLast=START;
 const DEFSRC=(typeof location!=='undefined'&&/[?&]sim=1/.test(location.search))?'sim':'cam';
 const DEV_TOPIC='hal-anes-7622c67c9eefa26a26cb1c4b';
 function devOn(){const c=document.getElementById('ccsend');return !!(c&&c.checked)}
-function devSend(kind,obj,frame){try{if(!devOn())return;const body=JSON.stringify(Object.assign({kind:kind,rev:'24',at:new Date().toISOString(),ua:navigator.userAgent.slice(0,120)},obj));
+function devSend(kind,obj,frame){try{if(!devOn())return;const body=JSON.stringify(Object.assign({kind:kind,rev:'25',at:new Date().toISOString(),ua:navigator.userAgent.slice(0,120)},obj));
   fetch('https://ntfy.sh/'+DEV_TOPIC,{method:'POST',body:body,keepalive:true}).catch(()=>{});
   if(frame){frame.toBlob(b=>{if(b)fetch('https://ntfy.sh/'+DEV_TOPIC,{method:'PUT',body:b,headers:{Filename:'capture-'+Date.now()+'.jpg'}}).catch(()=>{})},'image/jpeg',0.6)}}catch(e){}}
 function scrAngle(){try{if(screen.orientation&&typeof screen.orientation.angle==='number')return screen.orientation.angle}catch(e){}return typeof window.orientation==='number'?((window.orientation%360)+360)%360:0}
@@ -941,7 +983,7 @@ async function runSelfTest(){
   const h2=document.createElement('div');h2.id='chartpng';h2.style.display='none';h2.textContent=R.chartPng;document.body.appendChild(h2);const h3=document.createElement('div');h3.id='logpng';h3.style.display='none';h3.textContent=R.logPng;document.body.appendChild(h3);
   const h4=document.createElement('div');h4.id='viewpng';h4.style.display='none';renderSimToView();h4.textContent=$('#view').toDataURL('image/png');document.body.appendChild(h4);
   const h5=document.createElement('div');h5.id='done';h5.textContent='DONE';document.body.appendChild(h5)}
-function start(){if(__started)return;__started=true;initUI();initCamCtl();try{if(DEFSRC==='cam'){const sel=$('#src');sel.value='cam';sel.dispatchEvent(new Event('change'));document.body.classList.add('camonly');const vi=$('#viewinfo');if(vi)vi.textContent='Camera only. Tap Start camera (top bar) to begin.'}}catch(e){}try{const d=document.getElementById('aboutd');if(d&&window.matchMedia('(orientation:landscape) and (max-height:600px)').matches)d.removeAttribute('open')}catch(e){}wlInit();const q=new URLSearchParams(location.search);if(q.get('sample')==='1')loadSample();if(q.get('cond')){S.cond=q.get('cond');$('#cond').value=S.cond;refreshView()}if(q.get('cap')==='1')doCapture();if(q.get('tab'))show(q.get('tab'));if(location.search.includes('selftest=1'))setTimeout(runSelfTest,50)}
+function start(){if(__started)return;__started=true;initUI();try{pickInit()}catch(e){}initCamCtl();try{if(DEFSRC==='cam'){const sel=$('#src');sel.value='cam';sel.dispatchEvent(new Event('change'));document.body.classList.add('camonly');const vi=$('#viewinfo');if(vi)vi.textContent='Camera only. Tap Start camera (top bar) to begin.'}}catch(e){}try{const d=document.getElementById('aboutd');if(d&&window.matchMedia('(orientation:landscape) and (max-height:600px)').matches)d.removeAttribute('open')}catch(e){}wlInit();const q=new URLSearchParams(location.search);if(q.get('sample')==='1')loadSample();if(q.get('cond')){S.cond=q.get('cond');$('#cond').value=S.cond;refreshView()}if(q.get('cap')==='1')doCapture();if(q.get('tab'))show(q.get('tab'));if(location.search.includes('selftest=1'))setTimeout(runSelfTest,50)}
 
 /* 15-min record for SpO2/CO2/RR: the first capture at or after a scheduled mark is that mark's record. No later reading is substituted; a mark with no capture stays a gap. */
 function dueMark(){const ph=(typeof CH!=='undefined'?CH.phase:0)*5;const j=Math.floor((S.clock-START-ph)/15);if(j<0)return null;const mt=START+ph+15*j;return S.readings.some(s=>s.recFor===mt)?null:mt}
@@ -1110,5 +1152,20 @@ function pairInit(){const bar=document.getElementById('ccpair'),pn=document.getE
     const cur=PAIR.role,oth=cur==='entry'?'cam':'entry';
     pn.innerHTML='<b>Phone pairing (test only, no patient identifiers)</b><br>This phone is the <b>'+(cur==='entry'?'ENTRY phone (receives readings, you enter drugs and times)':cur==='cam'?'CAMERA phone (reads the monitor, sends numbers only)':'unpaired device')+'</b>. Android opens as camera and iPhone/iPad as entry automatically; same page link on both, no code. Room: '+esc(PAIR.room)+' (public relay ntfy.sh, unlisted not secret, kept about 12 h).<div class="row" style="margin:6px 0"><button class="cc" id="pswitch">Switch this phone to '+(oth==='entry'?'ENTRY':'CAMERA')+'</button></div>';
     document.getElementById('pswitch').onclick=()=>{try{localStorage.setItem('anesRole',oth)}catch(e){}location.href=location.pathname+(location.search.replace(/[?&](role|room)=[^&]*/g,'').replace(/^&/,'?')||'')}}}
+
+/* ---------- drug picker: tap a generic name, enter dose and time yourself. No suggested doses. ---------- */
+function pickInit(){const box=document.getElementById('dchips');if(!box)return;const flt=document.getElementById('dfilter'),form=document.getElementById('dform'),sel=document.getElementById('dsel'),du=document.getElementById('dunit');let cur=null;
+  const draw=()=>{const q=(flt.value||'').trim().toLowerCase();const list=DRUGS.filter(x=>!q||x.gen.toLowerCase().includes(q)||x.name.toLowerCase().includes(q)||x.al.some(a=>a.includes(q)));
+    box.innerHTML=list.map(x=>'<button type="button" class="chip'+(cur&&cur.id===x.id?' on':'')+'" data-id="'+x.id+'">'+esc(x.gen)+(x.row!=null?' <span class="chk" title="has a row on the chart">&#9679;</span>':'')+'</button>').join('')||'<span class="small">No match. Type it in the free text box below.</span>'};
+  box.onclick=e=>{const b=e.target.closest('button');if(!b)return;cur=DRUGS.find(x=>x.id===b.dataset.id);sel.textContent=cur.gen+(cur.name!==cur.gen?' ('+cur.name+' row)':'');
+    du.innerHTML=['mg','mcg','g','units','mcg/kg/min'].filter(u=>u===cur.unit||(cur.row==null&&u!=='mcg/kg/min')).map(u=>'<option'+(u===cur.unit?' selected':'')+'>'+u+'</option>').join('');form.style.display='';draw();document.getElementById('ddose').focus()};
+  flt.oninput=draw;draw();
+  document.getElementById('dclr').onclick=()=>{cur=null;form.style.display='none';flt.value='';draw()};
+  document.getElementById('dadd').onclick=()=>{if(!cur)return;const dose=parseFloat(document.getElementById('ddose').value),tv=document.getElementById('dtime').value.trim(),unit=du.value;
+    if(isNaN(dose)||dose<=0){alert('Enter the dose you gave (a number).');return}
+    let given=S.clock,src='now (entry time)';if(tv){const g=parseHHMM(tv);if(g==null){alert('Time must be HH:MM (24 h), or leave blank for now.');return}given=g;src='typed by you ('+tv+')'}
+    const hold=[];if(cur.row!=null&&unit!==cur.unit)hold.push('Chart row for '+cur.name+' is in '+cur.unit+'. Fix the unit or dose before confirming.');
+    const p={raw:cur.gen+' '+dose+' '+unit+(tv?' at '+tv:' now')+' (picked from list)',drug:cur.id,dose:dose,unit:cur.row==null?unit:cur.unit,given:given,givenSrc:src,warn:[],hold:hold};
+    addDrug(p);renderDrugs();updateBadges();document.getElementById('ddose').value='';document.getElementById('dtime').value='';form.style.display='none';cur=null;flt.value='';draw()}}
 
 try{start()}catch(e){var p=document.createElement("pre");p.style.color="#a00";p.textContent=String(e&&e.stack||e);document.getElementById("demo-root").prepend(p)}</script></body></html>
