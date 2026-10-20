@@ -1,4 +1,4 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="robots" content="noindex,nofollow"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Anesthesia charting demo (synthetic data only) rev 29</title><style>html,body{margin:0;background:#fff}#demo-root{--ink:#251f21;--ink2:#585254;--rule:#d9d6d7;--teal:#2f7f6d;--red:#c4202c;--sand:#f4efec}
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="robots" content="noindex,nofollow"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Anesthesia charting demo (synthetic data only) rev 30</title><style>html,body{margin:0;background:#fff}#demo-root{--ink:#251f21;--ink2:#585254;--rule:#d9d6d7;--teal:#2f7f6d;--red:#c4202c;--sand:#f4efec}
 #demo-root *{box-sizing:border-box}
 #demo-root{margin:0;font:15px/1.4 system-ui,Arial,sans-serif;color:var(--ink);background:#fff}
 #demo-root #banner{position:static;top:0;z-index:5;background:#fff4d6;border-bottom:2px solid #d9b44a;padding:6px 12px;font-weight:600;font-size:13px}
@@ -114,7 +114,7 @@ body.pairentry #demo-root #s-monitor>:not(#entrydesk){display:none!important}
 <div id="pairpanel" style="display:none;padding:8px 12px;border-bottom:2px solid #999;background:#f3f6ff" class="small"></div>
 <div id="banner">DEMO with synthetic data only. Not a medical record. Not for clinical use. Nothing here is validated on a real monitor or approved for patients.</div>
 <header><h1>Anesthesia charting assistant (prototype)</h1>
-<details id="aboutd" open><summary class="small">About and privacy &middot; <b>rev 29</b></summary><div class="small">Runs in this page. Nothing is uploaded by this demo. The Share / export button only runs when you tap it, and it hands the text to your phone's share sheet or clipboard. With "Auto-send to dev" ticked (it is ticked by default in this test build), each Capture sends the reading values and the camera frame, plus camera start errors, to a private test channel on the public ntfy.sh service, where the developer reads them; the channel name is unlisted but not secret, and ntfy.sh keeps messages about 12 hours. Untick it to stop sending. If you pair two phones, the camera phone sends only the reading numbers and a time (no photo) to a private room channel on ntfy.sh, which the other phone reads; enter no patient identifiers anywhere. Never point the camera at anything with patient information. If the phone screen locks the page pauses (the demo clock and camera stop); the Keep screen on button asks the browser to prevent that where it can. Stamps use the real device clock at the moment you tap, and saved case entries are kept on this device. Synthetic case entries are autosaved in this browser on this device only (Clear erases them). If you use voice, your browser may send audio to its vendor's speech service, so never speak patient information.</div></details></header>
+<details id="aboutd" open><summary class="small">About and privacy &middot; <b>rev 30</b></summary><div class="small">Runs in this page. Nothing is uploaded by this demo. The Share / export button only runs when you tap it, and it hands the text to your phone's share sheet or clipboard. With "Auto-send to dev" ticked (it is ticked by default in this test build), each Capture sends the reading values and the camera frame, plus camera start errors, to a private test channel on the public ntfy.sh service, where the developer reads them; the channel name is unlisted but not secret, and ntfy.sh keeps messages about 12 hours. Untick it to stop sending. If you pair two phones, the camera phone sends only the reading numbers and a time (no photo) to a private room channel on ntfy.sh, which the other phone reads; enter no patient identifiers anywhere. Never point the camera at anything with patient information. If the phone screen locks the page pauses (the demo clock and camera stop); the Keep screen on button asks the browser to prevent that where it can. Stamps use the real device clock at the moment you tap, and saved case entries are kept on this device. Synthetic case entries are autosaved in this browser on this device only (Clear erases them). If you use voice, your browser may send audio to its vendor's speech service, so never speak patient information.</div></details></header>
 <nav id="nav"></nav>
 
 <section id="s-monitor">
@@ -853,7 +853,7 @@ let autoLast=START;
 const DEFSRC=(typeof location!=='undefined'&&/[?&]sim=1/.test(location.search))?'sim':'cam';
 const DEV_TOPIC='hal-anes-7622c67c9eefa26a26cb1c4b';
 function devOn(){const c=document.getElementById('ccsend');return !!(c&&c.checked)}
-function devSend(kind,obj,frame){try{if(!devOn())return;const body=JSON.stringify(Object.assign({kind:kind,rev:'29',at:new Date().toISOString(),ua:navigator.userAgent.slice(0,120)},obj));
+function devSend(kind,obj,frame){try{if(!devOn())return;const body=JSON.stringify(Object.assign({kind:kind,rev:'30',at:new Date().toISOString(),ua:navigator.userAgent.slice(0,120)},obj));
   fetch('https://ntfy.sh/'+DEV_TOPIC,{method:'POST',body:body,keepalive:true}).catch(()=>{});
   if(frame){frame.toBlob(b=>{if(b)fetch('https://ntfy.sh/'+DEV_TOPIC,{method:'PUT',body:b,headers:{Filename:'capture-'+Date.now()+'.jpg'}}).catch(()=>{})},'image/jpeg',0.6)}}catch(e){}}
 function scrAngle(){try{if(screen.orientation&&typeof screen.orientation.angle==='number')return screen.orientation.angle}catch(e){}return typeof window.orientation==='number'?((window.orientation%360)+360)%360:0}
@@ -1125,9 +1125,12 @@ const PAIR={room:(PAIRQ.get('room')||'dvpair7k2q9x').toLowerCase().replace(/[^a-
 if(PAIR.room.length<4)PAIR.room='';
 const pairTopic=()=>'hal-anes-pair-'+PAIR.room;
 let pairRx=0,pairLast='',pairTx=0;const PAIRH={hb:0,rd:0};
-function pairSend(s){try{if(!PAIR.room||PAIR.role!=='cam')return;const vals={},conf={};PARAMS.forEach(k=>{vals[k]=s.params[k].val;conf[k]=s.params[k].read.conf});
+function pairSend(s){try{if(!PAIR.room||PAIR.role!=='cam')return;const vals={},conf={};PARAMS.forEach(k=>{vals[k]=s.params[k].val;conf[k]=Math.round(s.params[k].read.conf*100)/100});
   const body=JSON.stringify({kind:'pair',id:'p'+Date.now().toString(36)+Math.random().toString(36).slice(2,6),at:new Date().toISOString(),vals,conf});
-  fetch('https://ntfy.sh/'+pairTopic(),{method:'POST',body,keepalive:true}).then(r=>{if(window.__DBG){if(r.ok)window.__DBG.nsend++;else{window.__DBG.err='HTTP '+r.status;if(r.status===429)window.__DBG.lim=true}}if(r.ok){pairTx++;pairLast=new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});pairStatus()}}).catch(()=>{})}catch(e){}}
+  const done=r=>{if(window.__DBG){if(r.ok)window.__DBG.nsend++;else{window.__DBG.err='HTTP '+r.status;if(r.status===429)window.__DBG.lim=true}}if(r.ok){pairTx++;pairLast=new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});pairStatus()}};
+  const plain=()=>fetch('https://ntfy.sh/'+pairTopic(),{method:'POST',body,keepalive:true}).then(done).catch(()=>{});
+  try{const vc=vctx.canvas,por=vc.height>vc.width,c=document.createElement('canvas');c.width=por?405:720;c.height=por?720:405;c.getContext('2d').drawImage(vc,0,0,c.width,c.height);
+    c.toBlob(b=>{if(!b){plain();return}fetch('https://ntfy.sh/'+pairTopic(),{method:'PUT',body:b,headers:{Filename:'cap'+Date.now()+'.jpg','X-Message':body}}).then(done).catch(()=>plain())},'image/jpeg',0.62)}catch(e){plain()}}catch(e){}}
 function pairStatus(){const el=document.getElementById('ccpairst');if(!el)return;
   el.textContent=!PAIR.room?'':PAIR.role==='cam'?'Paired CAMERA phone, room '+PAIR.room+' | sent '+pairTx+(pairLast?' (last '+pairLast+')':''):PAIR.role==='entry'?'Paired ENTRY phone, room '+PAIR.room+' | received '+pairRx+(pairLast?' (last '+pairLast+')':''):''}
 function renderVT(){try{const el=document.getElementById('vtab');if(!el||PAIR.role!=='entry')return;el.style.display='';
@@ -1137,16 +1140,19 @@ function renderVT(){try{const el=document.getElementById('vtab');if(!el||PAIR.ro
   for(const s of rows){const p=s.params,t=(s.history.find(x=>/captured at device time/.test(x.what))||{what:''}).what.replace(/.*device time /,'').replace(/:\d\d(\s|$)/,'$1');
     const bp=(p.sys.val==null&&p.dia.val==null)?'-':v(p.sys.val)+'/'+v(p.dia.val)+(p.map.val!=null?' ('+p.map.val+')':'');
     h+='<tr style="border-top:1px solid #ccc"><td>'+esc(t||fmt(s.capT))+'</td><td>'+v(p.hr.val)+'</td><td>'+v(p.spo2.val)+'</td><td>'+v(p.co2.val)+'</td><td>'+v(p.rr.val)+'</td><td>'+bp+'</td><td class="small">'+(s.status==='confirmed'?'ok':s.status==='rejected'?'x':'?')+'</td></tr>'}
-  el.innerHTML=h+'</table><div class="small">Newest first. Blank = not read. ? = pending, confirm in Review. Test only.</div>'}catch(e){}}
+  let g='';const shots=rows.filter(s=>s.imgUrl).slice(0,6);
+  if(shots.length){g='<div class="small" style="margin-top:8px"><b>Captured screenshots</b> (same readings as the table, tap to enlarge)</div><div style="display:flex;flex-wrap:wrap;gap:8px">'+shots.map(s=>{const p=s.params,t=(s.history.find(x=>/captured at device time/.test(x.what))||{what:''}).what.replace(/.*device time /,'').replace(/:\d\d(\s|$)/,'$1'),v=x=>x==null?'-':x;
+    return '<a href="'+esc(s.imgUrl)+'" target="_blank" style="flex:1 1 150px;max-width:48%;text-decoration:none;color:#000"><img src="'+esc(s.imgUrl)+'" style="width:100%;display:block;background:#222;border:1px solid #999" onerror="var i=this;if(!i.__r){i.__r=1;setTimeout(function(){i.src=i.src+\'?r=1\'},3000)}"><div style="font-size:12px"><b>'+esc(t||fmt(s.capT))+'</b> HR '+v(p.hr.val)+' SpO2 '+v(p.spo2.val)+' CO2 '+v(p.co2.val)+' RR '+v(p.rr.val)+' BP '+v(p.sys.val)+'/'+v(p.dia.val)+'</div></a>'}).join('')+'</div>'}
+  el.innerHTML=h+'</table><div class="small">Newest first. Blank = not read. ? = pending, confirm in Review. Test only.</div>'+g}catch(e){}}
 function pairIngest(o){try{if(!o||o.kind!=='pair'||!o.vals)return;if(S.readings.some(x=>x.pairId===o.id))return;
   const res={};PARAMS.forEach(k=>{const v=o.vals[k];const c=(o.conf&&o.conf[k])||0;res[k]={key:k,val:(v==null?null:v),conf:c,status:v==null?'none':(c<0.45?'low':'ok'),why:v==null?'not read by camera phone':''}});
-  const s=newSet(res,null);s.source='paired camera phone';s.pairId=o.id;const tm=new Date(o.at).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  const s=newSet(res,null);s.source='paired camera phone';s.pairId=o.id;s.imgUrl=o.img||'';const tm=new Date(o.at).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',second:'2-digit'});
   s.history.push({at:wall(),caseT:S.clock,who:'reader',what:'received from paired camera phone, captured at device time '+tm});
   pairRx++;pairLast=tm;pairStatus();renderVT();renderReview();renderChart();updateBadges();
   const lr=document.getElementById('lastread');if(lr)lr.innerHTML='Received from camera phone ('+esc(tm)+'). Go to Review to confirm, edit or reject.'}catch(e){}}
 function pairListen(){if(!PAIR.room||PAIR.role!=='entry'||typeof EventSource==='undefined')return;
   const open=()=>{let es;try{es=new EventSource('https://ntfy.sh/'+pairTopic()+'/sse?since=12h')}catch(e){return}
-    es.onmessage=ev=>{try{const m=JSON.parse(ev.data);if(m.event==='message'&&m.message){const o=JSON.parse(m.message),tm=(m.time||0)*1000||Date.now();if(tm>PAIRH.hb)PAIRH.hb=tm;if(o.kind==='pair'&&tm>PAIRH.rd)PAIRH.rd=tm;pairIngest(o)}}catch(e){}};
+    es.onmessage=ev=>{try{const m=JSON.parse(ev.data);if(m.event==='message'&&m.message){const o=JSON.parse(m.message),tm=(m.time||0)*1000||Date.now();if(m.attachment&&m.attachment.url)o.img=m.attachment.url;if(tm>PAIRH.hb)PAIRH.hb=tm;if(o.kind==='pair'&&tm>PAIRH.rd)PAIRH.rd=tm;pairIngest(o)}}catch(e){}};
     es.onerror=()=>{try{es.close()}catch(e){}setTimeout(open,5000)}};open();
   document.addEventListener('visibilitychange',()=>{if(!document.hidden)pairStatus()})}
 function pairInit(){const bar=document.getElementById('ccpair'),pn=document.getElementById('pairpanel');if(!bar)return;
@@ -1164,7 +1170,7 @@ function pairInit(){const bar=document.getElementById('ccpair'),pn=document.getE
     setInterval(()=>{if(!lastSnap)return;const s=Math.round((Date.now()-lastSnap)/1000);sc.textContent='Camera snapshot, '+(s<90?s+'s':Math.round(s/60)+' min')+' ago (still image, not video; test only, no patient identifiers)'},1000)}
   if(PAIR.role==='entry'){try{const sm=document.getElementById('s-monitor'),desk=document.createElement('div');desk.id='entrydesk';
       const intro=document.createElement('div');intro.className='small';intro.style.cssText='margin:6px 0';intro.innerHTML='<b>Entry phone:</b> the camera phone reads the monitor. Enter drugs here (tap a drug, set dose and time) or use the stamp buttons above. Vitals arrive in the table above and in the Review tab.';desk.appendChild(intro);
-      const pk=document.getElementById('dfilter').closest('.card'),tr=document.getElementById('dtext').closest('.row'),dl=document.getElementById('druglist');[pk,tr,dl].forEach(n=>{if(n)desk.appendChild(n)});sm.insertBefore(desk,sm.firstChild)}catch(e){}}
+      const pk=document.getElementById('dfilter').closest('.card'),tr=document.getElementById('dtext').closest('.row'),dl=document.getElementById('druglist');[pk,tr,dl,document.getElementById('vtab'),document.getElementById('snapbox')].forEach(n=>{if(n)desk.appendChild(n)});sm.insertBefore(desk,sm.firstChild)}catch(e){}}
   if(PAIR.role==='entry'){const cs=document.getElementById('ccstat');if(cs)cs.style.display='none';const rb=document.getElementById('ccrot');if(rb)rb.style.display='none'}
   if(PAIR.role==='entry')setInterval(renderVT,3000);
   pairStatus();pairListen();
