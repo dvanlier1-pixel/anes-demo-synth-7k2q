@@ -1,0 +1,813 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="robots" content="noindex,nofollow"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Anesthesia charting demo (synthetic data only) rev 3</title><style>html,body{margin:0;background:#fff}#demo-root{--ink:#251f21;--ink2:#585254;--rule:#d9d6d7;--teal:#2f7f6d;--red:#c4202c;--sand:#f4efec}
+#demo-root *{box-sizing:border-box}
+#demo-root{margin:0;font:15px/1.4 system-ui,Arial,sans-serif;color:var(--ink);background:#fff}
+#demo-root #banner{position:static;top:0;z-index:5;background:#fff4d6;border-bottom:2px solid #d9b44a;padding:6px 12px;font-weight:600;font-size:13px}
+#demo-root header{padding:10px 12px 0}
+#demo-root h1{font-size:20px;margin:6px 0}
+#demo-root nav{display:flex;gap:4px;flex-wrap:wrap;padding:6px 12px;border-bottom:1px solid var(--rule)}
+#demo-root nav button{border:1px solid var(--rule);background:#fff;padding:7px 12px;border-radius:8px;font:inherit;cursor:pointer}
+#demo-root nav button.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+#demo-root section{display:none;padding:12px}
+#demo-root section.on{display:block}
+#demo-root .row{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-start}
+#demo-root button.b{border:1px solid var(--ink);background:#fff;border-radius:8px;padding:6px 10px;font:inherit;cursor:pointer}
+#demo-root button.b.p{background:var(--ink);color:#fff}
+#demo-root button.b:disabled{opacity:.4;cursor:not-allowed}
+#demo-root select,#demo-root input,#demo-root textarea{font:inherit;padding:5px 7px;border:1px solid #aaa;border-radius:6px}
+#demo-root canvas{max-width:100%;height:auto;border:1px solid #888;background:#000}
+#demo-root .card{border:1px solid var(--rule);border-radius:10px;padding:10px;margin:8px 0;background:#fff}
+#demo-root .card.flag{border-color:#d9b44a;background:#fffaf0}
+#demo-root .card.conf{border-color:var(--teal)}
+#demo-root .card.rej{opacity:.55}
+#demo-root .tag{display:inline-block;font-size:12px;border-radius:6px;padding:1px 6px;margin:0 4px 2px 0;background:#eee}
+#demo-root .tag.w{background:#ffe9b3}
+#demo-root .tag.r{background:#ffd3d6}
+#demo-root .tag.g{background:#d8efe7}
+#demo-root .small{font-size:12px;color:var(--ink2)}
+#demo-root table{border-collapse:collapse}
+#demo-root td,#demo-root th{border:1px solid #ccc;padding:3px 7px;font-size:13px;text-align:left}
+#demo-root #chartcv{background:#fff;width:min(100%,850px)}
+#demo-root #printarea{display:none}
+#demo-root #printarea canvas{page-break-after:always}
+#demo-root pre{white-space:pre-wrap;background:#f6f6f6;padding:8px;border-radius:8px;font-size:12px}
+#demo-root .note{background:#f4efec;border-radius:8px;padding:8px 10px;margin:8px 0;font-size:13px}
+#demo-root #timebar{position:sticky;top:0;z-index:6;background:#fff;border-bottom:2px solid var(--ink);padding:8px 12px}
+#demo-root .tbrow{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+@media(min-width:700px){#demo-root .tbrow{grid-template-columns:repeat(4,1fr)}}
+#demo-root .tbb{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:64px;border:2px solid var(--ink);border-radius:12px;background:#fff;font:inherit;cursor:pointer;padding:6px}
+#demo-root .tbb .tbl{font-weight:700;font-size:15px}
+#demo-root .tbb .tbv{font-size:20px;font-weight:700}
+#demo-root .tbb.set{background:var(--sand);border-color:var(--teal)}
+#demo-root .tbn{margin-top:6px}
+
+@media print{body *{visibility:hidden}#demo-root #printarea,#demo-root #printarea *{visibility:visible}#demo-root #printarea{display:block;position:absolute;left:0;top:0}#demo-root #printarea canvas{width:8.5in;height:11in;border:0;display:block}@page{size:letter;margin:0}}
+</style></head><body><div id="demo-root"></div><script>const markup = `
+<div id="banner">DEMO with synthetic data only. Not a medical record. Not for clinical use. Nothing here is validated on a real monitor or approved for patients.</div>
+<header><h1>Anesthesia charting assistant (prototype)</h1>
+<div class="small">Runs in this page. Nothing is uploaded by this demo. Camera frames stay in memory. Synthetic case entries are autosaved in this browser on this device only (Clear erases them). If you use voice, your browser may send audio to its vendor's speech service, so never speak patient information.</div></header>
+<nav id="nav"></nav>
+
+<section id="s-monitor">
+ <div class="note"><b>What this does:</b> reads numbers from an image of a monitor screen using a small on-device digit reader. It is validated only on the simulated screen below (see Self-test). Camera and upload modes use the same reader but are <b>uncalibrated and unvalidated on a real monitor</b>. Every reading goes to Review before it can reach the chart.</div>
+ <div class="row">
+  <div>
+   <canvas id="view" width="960" height="540" style="width:min(100%,640px)"></canvas>
+   <div class="small" id="viewinfo">Source: simulated screen (made-up values)</div>
+  </div>
+  <div style="min-width:260px;flex:1">
+   <div class="card">
+    <b>Source</b><br>
+    <select id="src"><option value="sim">Simulated screen (made-up)</option><option value="img">Uploaded image</option><option value="cam">Camera (experimental)</option></select>
+    <input type="file" id="file" accept="image/*" style="display:none">
+    <button class="b" id="camstart" style="display:none">Start camera</button>
+    <div class="small" id="srcnote"></div>
+   </div>
+   <div class="card">
+    <b>Demo clock</b> <span id="clock" style="font-weight:700"></span> <span class="small">(simulated case time, not real time)</span><br>
+    <button class="b" id="run">Run</button> <button class="b" id="step">+1 min</button> <button class="b" id="step5">+5 min</button>
+    <label class="small"><input type="checkbox" id="auto"> auto-capture every 5 min</label>
+   </div>
+   <div class="card">
+    <b>Simulate screen conditions</b><br>
+    <select id="cond"></select>
+    <div class="small">Tests whether the reader refuses unreadable screens instead of guessing.</div>
+   </div>
+   <div class="card">
+    <button class="b p" id="capture">Capture reading now</button>
+    <div id="lastread" class="small" style="margin-top:6px"></div>
+   </div>
+  </div>
+ </div>
+</section>
+
+<section id="s-review">
+ <div class="note">Nothing reaches the chart until you confirm it. Flags never change a value. Edits keep the original read value on record.</div>
+ <div id="reviewlist"></div>
+</section>
+
+<section id="s-drugs">
+ <div class="note">Type a drug entry, or use voice if your browser supports it. The tool shows what it understood. You confirm before it reaches the chart. The time given and the time entered are stored separately.</div>
+<div class="card" style="margin:8px 0"><b>EKG rhythm (you type it)</b>
+ <div class="small">Rhythm is entered by you, usually every 15 min. SR (sinus rhythm) is pre-filled as a default you can change. It is not detected by the tool, never inferred from the heart rate, and goes to the chart only after you confirm it. Confirm before it reaches the chart (up to 6 characters on the chart).</div>
+ <div class="row" style="margin:6px 0"><input id="rtext" size="8" maxlength="6" list="rlist" value="SR" placeholder="e.g. SR"><datalist id="rlist"><option value="SR"><option value="AF"><option value="Paced"></datalist> time <input id="rtime" size="6" placeholder="HH:MM or blank = now"> <button class="b p" id="radd">Add rhythm</button></div>
+ <div id="rhythmlist"></div></div>
+ <div class="row">
+  <div style="flex:1;min-width:280px">
+   <textarea id="dtext" rows="2" style="width:100%" placeholder='e.g. "fentanyl 50 mcg at 9:15" or "propofol 100 mg now" or "zofran 4 mg 10 minutes ago"'></textarea>
+   <button class="b p" id="dparse">Parse entry</button>
+   <button class="b" id="dvoice">Enable voice</button>
+   <span class="small" id="vstat"></span>
+  </div>
+ </div>
+ <div id="druglist"></div>
+</section>
+
+<section id="s-chart">
+ <div class="row" style="margin-bottom:8px">
+  <button class="b p" id="cprint">Print chart</button>
+  <button class="b" id="cpng">Download PNG</button>
+  <button class="b" id="csample">Load sample data (bypasses review, test only)</button>
+  <button class="b" id="creset">Clear everything</button>
+ </div>
+ <div class="small" id="chartnote"></div>
+ <canvas id="chartcv" width="2550" height="3300"></canvas>
+</section>
+
+<section id="s-test">
+ <button class="b p" id="runtest">Run self-test</button>
+ <div class="small">Takes about a minute. Results below are measured on the simulated screen, not on a real monitor.</div>
+ <pre id="testout"></pre>
+</section>
+<div id="printarea"></div>
+`;
+;document.getElementById("demo-root").innerHTML=markup;</script><script>// @ts-nocheck
+let __started=false;
+
+const $=s=>document.querySelector(s);
+const FONT='Arial,"Liberation Sans",Helvetica,sans-serif';
+const START=540; // 09:00 case clock start (minutes)
+const fmt=m=>{m=Math.round(m);const h=Math.floor(m/60)%24,mm=((m%60)+60)%60;return String(h).padStart(2,'0')+':'+String(mm).padStart(2,'0')};
+const S={clock:START,running:false,readings:[],drugs:[],sim:null,seq:0,frozen:false,lastCaptures:[],src:'sim',cond:'none',srcImg:null,stream:null};
+const wall=()=>new Date().toISOString();
+let uid=0;const nid=p=>p+(++uid);
+
+/* ---------- simulator ---------- */
+function rnd(a,b){return a+Math.random()*(b-a)}
+const sim={hr:78,spo2:98,co2:38,rr:12,sys:112,dia:68,map:83,nibpAt:START-5,nibpOn:true,abn:false};
+function simStep(){
+  if(S.frozen)return;
+  sim.hr=Math.round(Math.min(130,Math.max(48,sim.hr+rnd(-2.5,2.5))));
+  sim.spo2=Math.round(Math.min(100,Math.max(94,sim.spo2+rnd(-1,1))));
+  sim.co2=Math.round(Math.min(46,Math.max(32,sim.co2+rnd(-1.5,1.5))));
+  sim.rr=Math.round(Math.min(18,Math.max(8,sim.rr+rnd(-1,1))));
+  if(sim.nibpOn&&S.clock-sim.nibpAt>=5){sim.nibpAt=S.clock;sim.sys=Math.round(rnd(100,128));sim.dia=Math.round(rnd(58,78));sim.map=Math.round((sim.sys+2*sim.dia)/3)}
+}
+const LAY={W:960,H:540,
+ hr:{x:640,y:44,w:300,h:110,font:96,col:'#35e06a',key:'hr',maxd:3,colr:'green'},
+ spo2:{x:640,y:164,w:300,h:100,font:84,col:'#38e0e8',key:'spo2',maxd:3,colr:'cyan'},
+ co2:{x:640,y:272,w:170,h:90,font:76,col:'#ff7a2a',key:'co2',maxd:3,colr:'orange'},
+ rr:{x:830,y:290,w:90,h:56,font:44,col:'#ff7a2a',key:'rr',maxd:2,colr:'orange'},
+ sys:{x:660,y:372,w:140,h:70,font:62,col:'#f2f2f2',key:'sys',maxd:3,colr:'white'},
+ dia:{x:660,y:446,w:140,h:70,font:62,col:'#f2f2f2',key:'dia',maxd:3,colr:'white'},
+ map:{x:834,y:412,w:100,h:56,font:44,col:'#f2f2f2',key:'map',maxd:3,colr:'white'}};
+const PARAMS=['hr','spo2','co2','rr','sys','dia','map'];
+const PLABEL={hr:'HR',spo2:'SpO2',co2:'EtCO2',rr:'RR',sys:'NIBP sys',dia:'NIBP dia',map:'NIBP MAP'};
+const PUNIT={hr:'bpm',spo2:'%',co2:'mmHg',rr:'/min',sys:'mmHg',dia:'mmHg',map:'mmHg'};
+function drawMonitor(ctx,vals,opts){
+  opts=opts||{};const W=960,H=540;ctx.save();ctx.fillStyle='#000';ctx.fillRect(0,0,W,H);
+  ctx.fillStyle='#bbb';ctx.font='14px '+FONT;ctx.textBaseline='middle';
+  ctx.fillText('Patient    Monitor Setup    Print Setup    Parameters    Functions',14,16);ctx.textAlign='right';ctx.fillText('SIM '+fmt(S.clock),W-12,16);ctx.textAlign='left';
+  const ph=S.clock*0.9;
+  const wave=(y0,h,col,f)=>{ctx.strokeStyle=col;ctx.lineWidth=2;ctx.beginPath();for(let x=20;x<610;x++){const t=x/18+ph;const y=y0+h/2-f(t)*h/2;x==20?ctx.moveTo(x,y):ctx.lineTo(x,y)}ctx.stroke()};
+  wave(60,110,'#35e06a',t=>{const u=(t%(Math.PI*2))/(Math.PI*2);return u<.08?.9:u<.12?-.25:u<.2?.2*Math.sin(u*30):0});
+  wave(190,110,'#38e0e8',t=>.7*Math.sin(t*1.0)**2*(vals?1:1)-.3);
+  wave(320,110,'#ff7a2a',t=>Math.max(-.6,Math.min(.8,Math.sin(t*.35)*2)));
+  ctx.textAlign='right';ctx.textBaseline='alphabetic';
+  const put=(k,txt)=>{const r=LAY[k];if(txt==null)return;ctx.fillStyle=r.col;ctx.font='bold '+r.font+'px '+FONT;ctx.fillText(String(txt),r.x+r.w-6,r.y+r.h-(r.h-r.font*0.72)/2);};
+  if(vals){PARAMS.forEach(k=>put(k,vals[k]))}
+  ctx.font='14px '+FONT;ctx.fillStyle='#667';ctx.textAlign='left';
+  ctx.fillText('HR bpm',628,40);ctx.fillText('SpO2 %',628,158);ctx.fillText('EtCO2 mmHg',628,266);ctx.fillText('rpm',900,360);ctx.fillText('NIBP',628,366);ctx.fillText('Interval: 5 min',810,500);
+  ctx.fillStyle='#666';ctx.font='bold 40px '+FONT;ctx.fillText('(',812,446);ctx.fillText(')',928,446);
+  ctx.strokeStyle='#666';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(670,444);ctx.lineTo(820,444);ctx.stroke();
+  ctx.restore();
+}
+let sc,sctx,vctx,vcv;
+function simVals(){return {hr:sim.hr,spo2:sim.spo2,co2:sim.co2,rr:sim.rr,sys:sim.sys,dia:sim.dia,map:sim.map}}
+/* conditions applied to sim canvas -> view canvas, like a camera would degrade */
+const CONDS={none:'Clean',noise:'Sensor noise',blur:'Defocus blur',lowres:'Low resolution',dim:'Dim room',bright:'Overexposed',shift:'Camera shifted slightly',glare:'Glare over HR',menu:'Menu covering numbers',alarm:'Alarm flash (inverted HR)',abn:'Abnormal values (HR 38, SpO2 86)',nibpstuck:'NIBP not cycling'};
+function applyCond(cond,target,srcCv){
+  const W=960,H=540,c=target;c.save();c.setTransform(1,0,0,1,0,0);
+  const mk=()=>{const x=document.createElement('canvas');x.width=W;x.height=H;return x};
+  let src=srcCv;
+  if(cond==='lowres'){const t=mk();t.width=480;t.height=270;t.getContext('2d').drawImage(src,0,0,480,270);c.imageSmoothingEnabled=true;c.drawImage(t,0,0,W,H);c.restore();return}
+  if(cond==='blur')c.filter='blur(1.6px)';
+  if(cond==='dim')c.filter='brightness(.55)';
+  if(cond==='bright')c.filter='brightness(1.35)';
+  if(cond==='shift'){c.fillStyle='#000';c.fillRect(0,0,W,H);c.drawImage(src,10,-6)}else c.drawImage(src,0,0);
+  c.filter='none';
+  if(cond==='noise'){const id=c.getImageData(0,0,W,H),d=id.data;for(let i=0;i<d.length;i+=4){const n=(Math.random()+Math.random()+Math.random()-1.5)*34;d[i]+=n;d[i+1]+=n;d[i+2]+=n}c.putImageData(id,0,0)}
+  if(cond==='glare'){const g=c.createRadialGradient(780,100,5,780,100,80);g.addColorStop(0,'rgba(255,255,255,.98)');g.addColorStop(.6,'rgba(255,255,255,.8)');g.addColorStop(1,'rgba(255,255,255,0)');c.fillStyle=g;c.fillRect(640,30,300,150)}
+  if(cond==='menu'){c.fillStyle='#c8c8c8';c.fillRect(600,30,350,500);c.fillStyle='#222';c.font='20px '+FONT;c.textAlign='left';['Alarm limits','HR high 120','SpO2 low 90','Interval 5 min','Back'].forEach((t,i)=>c.fillText(t,620,80+i*60))}
+  if(cond==='alarm'){const r=LAY.hr;c.fillStyle='#35e06a';c.fillRect(r.x,r.y,r.w,r.h);c.fillStyle='#000';c.font='bold 96px '+FONT;c.textAlign='right';c.fillText(String(sim.hr),r.x+r.w-6,r.y+r.h-(r.h-96*0.72)/2)}
+  c.restore();
+}
+function renderSimToView(){
+  const v=Object.assign({},simVals());
+  if(S.cond==='abn'){v.hr=38;v.spo2=86}
+  drawMonitor(sctx,v);
+  applyCond(S.cond==='abn'?'none':S.cond,vctx,sc);
+}
+/* ---------- reader ---------- */
+const GW=16,GH=24;
+function colorMask(r,g,b,colr,vt,vm){
+  vt=vt||95;vm=vm||255;const v=Math.max(r,g,b);if(v<vt)return 0;
+  switch(colr){
+   case 'green':return (g===v&&r/v<.6&&b/v<.7)?1:0;
+   case 'cyan':return (r/v<.5&&g/v>.7&&b/v>.7&&Math.abs(g-b)/v<.3)?1:0;
+   case 'orange':return (r===v&&g/v>.3&&g/v<.8&&b/v<.45)?1:0;
+   case 'white':return (Math.min(r,g,b)/v>.75&&v>0.6*vm)?1:0;
+  }return 0}
+function glyphVec(mask,mw,bb){
+  const w=bb.x1-bb.x0+1,h=bb.y1-bb.y0+1,sc=GH/h,tw=Math.min(GW,Math.max(1,Math.round(w*sc)));
+  const ox=Math.floor((GW-tw)/2),vec=new Float32Array(GW*GH);
+  for(let ty=0;ty<GH;ty++){const sy0=bb.y0+ty/sc,sy1=bb.y0+(ty+1)/sc;
+    for(let tx=0;tx<GW;tx++){const ux=tx-ox;if(ux<0||ux>=tw)continue;
+      const sx0=bb.x0+ux*(w/tw),sx1=bb.x0+(ux+1)*(w/tw);let s=0,n=0;
+      for(let y=Math.floor(sy0);y<Math.max(Math.floor(sy0)+1,Math.ceil(sy1));y++)for(let x=Math.floor(sx0);x<Math.max(Math.floor(sx0)+1,Math.ceil(sx1));x++){s+=mask[y*mw+x];n++}
+      vec[ty*GW+tx]=n?s/n:0}}
+  return {vec,asp:w/h}}
+let TEMPL=null;
+function buildTemplates(){
+  if(TEMPL)return TEMPL;TEMPL=[];const cv=document.createElement('canvas');cv.width=160;cv.height=160;const c=cv.getContext('2d',{willReadFrequently:true});
+  for(let d=0;d<10;d++){c.fillStyle='#000';c.fillRect(0,0,160,160);c.fillStyle='#f2f2f2';c.font='bold 100px '+FONT;c.textAlign='left';c.textBaseline='alphabetic';c.fillText(String(d),30,125);
+    const id=c.getImageData(0,0,160,160).data,m=new Uint8Array(160*160);let bb={x0:999,y0:999,x1:-1,y1:-1};
+    for(let y=0;y<160;y++)for(let x=0;x<160;x++){const i=(y*160+x)*4;if(colorMask(id[i],id[i+1],id[i+2],'white',100,242)){m[y*160+x]=1;bb.x0=Math.min(bb.x0,x);bb.y0=Math.min(bb.y0,y);bb.x1=Math.max(bb.x1,x);bb.y1=Math.max(bb.y1,y)}}
+    TEMPL.push(glyphVec(m,160,bb))}
+  return TEMPL}
+function dist(a,b){let s=0;for(let i=0;i<a.vec.length;i++)s+=Math.abs(a.vec[i]-b.vec[i]);return s/a.vec.length+0.35*Math.abs(a.asp-b.asp)}
+const REAL={dMax:0.2,margin:0.025};
+function boxBlur(src,w,h){const o=new Uint8ClampedArray(src.length);for(let y=0;y<h;y++)for(let x=0;x<w;x++){let a=0,b=0,c=0,n=0;for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){const xx=x+dx,yy=y+dy;if(xx<0||yy<0||xx>=w||yy>=h)continue;const i=(yy*w+xx)*4;a+=src[i];b+=src[i+1];c+=src[i+2];n++}const j=(y*w+x)*4;o[j]=a/n;o[j+1]=b/n;o[j+2]=c/n;o[j+3]=255}return o}
+function readROI(ctx,k,fw,fh){
+  const r=LAY[k],sx=fw/960,sy=fh/540,X=Math.round((r.x-12)*sx),Y=Math.round((r.y-8)*sy),Wd=Math.round((r.w+24)*sx),Hd=Math.round((r.h+16)*sy);
+  const id=ctx.getImageData(X,Y,Wd,Hd);const d=boxBlur(id.data,Wd,Hd);const m=new Uint8Array(Wd*Hd);let vm=0;for(let i=0;i<d.length;i+=4){const v=Math.max(d[i],d[i+1],d[i+2]);if(v>vm)vm=v}const vt=Math.max(60,0.42*vm);
+  const cols=new Int32Array(Wd);let masked=0,brightOther=0;
+  for(let y=0;y<Hd;y++)for(let x=0;x<Wd;x++){const i=(y*Wd+x)*4;if(colorMask(d[i],d[i+1],d[i+2],r.colr,vt,vm)){m[y*Wd+x]=1;cols[x]++;masked++}else if(Math.max(d[i],d[i+1],d[i+2])>0.6*vm)brightOther++}
+  // glyph runs by column projection (columns with >=2 mask px)
+  const runs=[];let st=-1;for(let x=0;x<=Wd;x++){const on=x<Wd&&cols[x]>=2;if(on&&st<0)st=x;if(!on&&st>=0){runs.push([st,x-1]);st=-1}}
+  const merged=[];for(const q of runs){const l=merged[merged.length-1];if(l&&q[0]-l[1]<=2)l[1]=q[1];else merged.push(q.slice())}
+  const expH=r.font*0.72*sy,glyphs=[],adv=0.556*r.font*sx;
+  const pushG=(a,b)=>{let y0=999,y1=-1,n=0;for(let y=0;y<Hd;y++)for(let x=a;x<=b;x++)if(m[y*Wd+x]){y0=Math.min(y0,y);y1=Math.max(y1,y);n++}
+    if(y1<0||n<0.04*expH*expH*0.3)return;glyphs.push({bb:{x0:a,x1:b,y0,y1},h:y1-y0+1,w:b-a+1,n})};
+  for(const [a,b] of merged){const w=b-a+1;if(w>0.92*expH*1.05&&w>adv*1.25){const n=Math.max(2,Math.round(w/adv));const pw=w/n;for(let i=0;i<n;i++)pushG(Math.round(a+i*pw),Math.round(a+(i+1)*pw)-1)}else pushG(a,b)}
+  const out={key:k,val:null,conf:0,status:'none',why:''};
+  if(brightOther>0.5*masked+40){out.why='area obscured or unexpected bright content';return out}
+  if(!glyphs.length){out.why='no digits found';return out}
+  if(glyphs.length>r.maxd){out.why='too many glyphs';return out}
+  for(const g of glyphs){if(g.h<expH*0.78||g.h>expH*1.25){out.why='digit size off';return out}if(g.w>expH*0.95){out.why='merged glyphs';return out}}
+  const T=buildTemplates();let s='',minConf=1;
+  for(const g of glyphs){const gv=glyphVec(m,Wd,g.bb);const ds=T.map((t,i)=>[dist(gv,t),i]).sort((p,q)=>p[0]-q[0]);
+    const d1=ds[0][0],d2=ds[1][0];
+    if(d1>REAL.dMax||d2-d1<REAL.margin){out.why='unclear digit';out.status='none';return out}
+    s+=ds[0][1];minConf=Math.min(minConf,Math.max(0,1-d1/REAL.dMax))}
+  out.val=parseInt(s,10);out.conf=+minConf.toFixed(2);out.status=minConf<0.45?'low':'ok';return out}
+function readFrame(cv){
+  const c=cv.getContext('2d',{willReadFrequently:true}),fw=cv.width,fh=cv.height;
+  const res={};PARAMS.forEach(k=>res[k]=readROI(c,k,fw,fh));return res}
+function frameSig(cv){ // coarse waveform-area signature for frozen-screen check
+  const c=cv.getContext('2d',{willReadFrequently:true}),sx=cv.width/960,sy=cv.height/540;
+  const id=c.getImageData(Math.round(20*sx),Math.round(50*sy),Math.round(590*sx),Math.round(390*sy)),d=id.data;
+  const sig=new Uint8Array(40*20);const w=id.width,h=id.height;
+  for(let gy=0;gy<20;gy++)for(let gx=0;gx<40;gx++){let s=0,n=0;for(let y=Math.floor(gy*h/20);y<Math.floor((gy+1)*h/20);y+=3)for(let x=Math.floor(gx*w/40);x<Math.floor((gx+1)*w/40);x+=3){const i=(y*w+x)*4;s+=d[i]+d[i+1]+d[i+2];n++}sig[gy*40+gx]=n?s/n/3:0}
+  return sig}
+function sigDiff(a,b){let s=0;for(let i=0;i<a.length;i++)s+=Math.abs(a[i]-b[i]);return s/a.length}
+
+/* ---------- readings, flags ---------- */
+const RANGE={hr:[25,220],spo2:[50,100],co2:[0,80],rr:[0,60],sys:[40,260],dia:[20,160],map:[20,200]};
+const JUMP={hr:40,spo2:8,co2:20,rr:12,sys:50,dia:35,map:35};
+function lastConfirmedVal(k,beforeId){let best=null;for(const s of S.readings){if(s.id===beforeId)continue;if(s.status!=='confirmed')continue;const v=s.params[k].val;if(v!=null&&(!best||s.capT>best.t))best={t:s.capT,v}}return best}
+function computeFlags(set){
+  const f=[];
+  PARAMS.forEach(k=>{const p=set.params[k];
+    if(p.read.status==='none')f.push({k,t:'noread',m:PLABEL[k]+': not read ('+(p.read.why||'')+'). Enter manually or leave blank.'});
+    else if(p.read.status==='low')f.push({k,t:'lowconf',m:PLABEL[k]+': low confidence read.'});
+    const v=p.val;if(v==null)return;
+    if(v<RANGE[k][0]||v>RANGE[k][1])f.push({k,t:'range',m:PLABEL[k]+' '+v+' is outside the tool\'s loose plausibility range. Value kept as read.'});
+    const lc=lastConfirmedVal(k,set.id);if(lc&&Math.abs(v-lc.v)>=JUMP[k]&&Math.abs(set.capT-lc.t)<=15)f.push({k,t:'jump',m:PLABEL[k]+' changed '+(v-lc.v>0?'+':'')+(v-lc.v)+' vs confirmed value at '+fmt(lc.t)+'. Value kept as read.'})});
+  const sy=set.params.sys.val,di=set.params.dia.val;if(sy!=null&&di!=null&&sy<=di)f.push({k:'sys',t:'nibp',m:'NIBP systolic is not above diastolic.'});
+  if(set.frozen)f.push({k:'all',t:'frozen',m:'Screen looks unchanged across recent captures (possible frozen display or stale view).'});
+  if(set.nibpStale)f.push({k:'sys',t:'stale',m:'NIBP values unchanged for '+set.nibpStale+' min, longer than the interval. May be stale.'});
+  return f}
+function newSet(res,sig){
+  const prev=S.lastCaptures.slice(-3);let frozen=false;
+  if(sig&&prev.length>=2&&prev.slice(-2).every(p=>p.sig&&p.t<S.clock)&&prev.slice(-2).every(p=>sigDiff(p.sig,sig)<0.4))frozen=true;
+  let nibpStale=0;const pv=S.lastCaptures[S.lastCaptures.length-1];
+  const n={sys:res.sys.val,dia:res.dia.val,map:res.map.val};
+  if(n.sys!=null){const run=S.nibpRun;
+    if(run&&run.sys===n.sys&&run.dia===n.dia&&run.map===n.map){nibpStale=S.clock-run.t0}else S.nibpRun={sys:n.sys,dia:n.dia,map:n.map,t0:S.clock}}
+  const set={id:nid('V'),kind:'vitals',recFor:dueMark(),capT:S.clock,capWall:wall(),source:S.src,cond:S.cond,status:'pending',params:{},history:[],frozen,nibpStale:nibpStale>6?nibpStale:0,seq:++S.seq};
+  PARAMS.forEach(k=>set.params[k]={read:{val:res[k].val,conf:res[k].conf,status:res[k].status,why:res[k].why},val:res[k].val,edited:false});
+  set.history.push({at:wall(),caseT:S.clock,who:'reader',what:'captured from '+(S.src==='sim'?'simulated screen':S.src)+(S.cond!=='none'?' ['+CONDS[S.cond]+']':'')});
+  set.flags=computeFlags(set);S.lastCaptures.push({t:S.clock,sig});if(S.lastCaptures.length>6)S.lastCaptures.shift();
+  S.readings.push(set);return set}
+function capture(){
+  const res=readFrame(vcv);const sig=frameSig(vcv);return newSet(res,sig)}
+/* ---------- drugs ---------- */
+const DRUGS=[
+ {id:'lidocaine',name:'Lidocaine',unit:'mg',row:0,al:['lidocaine','lido','xylocaine']},
+ {id:'propofol',name:'Propofol',unit:'mg',row:1,al:['propofol','diprivan']},
+ {id:'fentanyl',name:'Fentanyl',unit:'mcg',row:2,al:['fentanyl','fent'],ctrl:1},
+ {id:'demerol',name:'Demerol',unit:'mg',row:3,al:['demerol','meperidine'],ctrl:1},
+ {id:'dilaudid',name:'Dilaudid',unit:'mg',row:4,al:['dilaudid','hydromorphone'],ctrl:1},
+ {id:'versed',name:'Versed',unit:'mg',row:5,al:['versed','midazolam'],ctrl:1},
+ {id:'ancef',name:'Ancef',unit:'g',row:6,al:['ancef','cefazolin']},
+ {id:'clinda',name:'Clindamycin',unit:'mg',row:6,al:['clindamycin','clinda','cleocin']},
+ {id:'glyco',name:'Glycopyrrolate',unit:'mg',row:7,al:['glycopyrrolate','glyco','robinul']},
+ {id:'decadron',name:'Decadron',unit:'mg',row:8,al:['decadron','dexamethasone','dex']},
+ {id:'zofran',name:'Zofran',unit:'mg',row:9,al:['zofran','ondansetron']},
+ {id:'toradol',name:'Toradol',unit:'mg',row:10,al:['toradol','ketorolac']},
+ {id:'propgtt',name:'Propofol gtt',unit:'mcg/kg/min',row:11,al:[],gtt:1},
+ {id:'txa',name:'TXA',unit:'g',row:12,al:['txa','tranexamic']}];
+const ROWS=['Lidocaine (mg)','Propofol (mg)','Fentanyl (mcg)','Demerol (mg)','Dilaudid (mg)','Versed (mg)','Ancef (g) / Clindamycin (mg)','Glycopyrrolate (mg)','Decadron (mg)','Zofran (mg)','Toradol (mg)','Propofol gtt (mcg/kg/min)','TXA (g)','','',''];
+function lev(a,b){const d=[];for(let i=0;i<=a.length;i++){d[i]=[i];}for(let j=1;j<=b.length;j++)d[0][j]=j;for(let i=1;i<=a.length;i++)for(let j=1;j<=b.length;j++)d[i][j]=Math.min(d[i-1][j]+1,d[i][j-1]+1,d[i-1][j-1]+(a[i-1]===b[j-1]?0:1));return d[a.length][b.length]}
+function normUnit(u){if(!u)return null;u=u.toLowerCase();if(/^(mcg|mcgs|ug|microgram|micrograms)$/.test(u))return 'mcg';if(/^(mg|mgs|milligram|milligrams)$/.test(u))return 'mg';if(/^(g|gm|gram|grams)$/.test(u))return 'g';return null}
+function parseDrug(text,now){
+  const out={raw:text,ok:false,drug:null,dose:null,unit:null,given:now,givenSrc:'now (entry time)',warn:[],hold:[],fuzzy:null};
+  let t=' '+text.toLowerCase().replace(/[,;]/g,' ').replace(/\s+/g,' ')+' ';
+  let m;
+  if((m=t.match(/\b(\d{1,3})\s*(?:min|mins|minutes)\s*ago\b/))){out.given=now-parseInt(m[1],10);out.givenSrc='dictated ('+m[1]+' min ago)';t=t.replace(m[0],' ')}
+  else if((m=t.match(/\b(?:at|@)\s*(\d{1,2})(?::|\.)?(\d{2})?\s*(am|pm|a\.m\.|p\.m\.)?\b/))){
+    let h=parseInt(m[1],10),mi=m[2]?parseInt(m[2],10):0;const ap=m[3]&&m[3][0];
+    if(m[2]==null&&m[1].length>=3){}
+    if(mi>59||h>24){out.hold.push('Could not read the time "'+m[0].trim()+'".')}
+    else{if(ap==='p'&&h<12)h+=12;if(ap==='a'&&h===12)h=0;if(!ap&&h>=1&&h<=6){h+=12;out.warn.push('Time has no am/pm. Assumed '+h+':'+String(mi).padStart(2,'0')+'.')}
+      out.given=h*60+mi;out.givenSrc='dictated ('+m[0].trim()+')'}
+    t=t.replace(m[0],' ')}
+  else if(/\bnow\b/.test(t)){out.givenSrc='now (said "now")';t=t.replace(/\bnow\b/,' ')}
+  else out.warn.push('No time given. Used entry time.');
+  // dose
+  const gtt=/\b(drip|gtt|infusion)\b|mcg\s*\/\s*kg/.test(t);
+  m=t.match(/(\d+(?:\.\d+)?)\s*(mcg\s*\/\s*kg\s*\/\s*min|micrograms?|mcgs?|ug|milligrams?|mgs?|mg|grams?|gm|g)?(?=\s|$)/);
+  if(m){out.dose=parseFloat(m[1]);let u=m[2]?m[2].replace(/\s+/g,''):null;out.unitSaid=/mcg\/kg\/min/.test(u||'')?'mcg/kg/min':normUnit(u);t=t.replace(m[0],' ')}
+  else out.hold.push('No dose found.');
+  // drug
+  const toks=t.replace(/[^a-z ]/g,' ').split(' ').filter(Boolean);let hit=null;
+  for(const tk of toks){for(const d of DRUGS){for(const a of d.al){if(tk===a){hit={d,fuzzy:null};break}}if(hit)break}if(hit)break}
+  if(!hit){for(const tk of toks){if(tk.length<5)continue;for(const d of DRUGS)for(const a of d.al){if(a.length>=5&&lev(tk,a)<=1){hit={d,fuzzy:tk};break}}if(hit)break}}
+  if(!hit)out.hold.push('Drug not recognized from the chart list.');
+  else{let d=hit.d;if(gtt&&d.id==='propofol')d=DRUGS.find(x=>x.id==='propgtt');out.drug=d.id;if(hit.fuzzy){out.fuzzy=hit.fuzzy;out.warn.push('Heard "'+hit.fuzzy+'", matched to '+d.name+'. Check.')}
+    out.unit=d.unit;
+    if(out.unitSaid&&out.unitSaid!==d.unit)out.hold.push('You said "'+out.dose+' '+out.unitSaid+'" but the chart row for '+d.name+' is in '+d.unit+'. Fix the unit or dose before confirming.');
+    if(!out.unitSaid&&out.dose!=null)out.warn.push('No unit said. Using chart unit '+d.unit+'.')}
+  out.ok=out.hold.length===0;return out}
+function addDrug(p){
+  const set={id:nid('D'),kind:'drug',status:'pending',drug:p.drug,dose:p.dose,unit:p.unit,given:p.given,givenSrc:p.givenSrc,enteredCase:S.clock,enteredWall:wall(),raw:p.raw,warn:p.warn,hold:p.hold,orig:{drug:p.drug,dose:p.dose,unit:p.unit,given:p.given},history:[],edited:false};
+  set.history.push({at:wall(),caseT:S.clock,who:'entry',what:'entered: "'+p.raw+'"'});S.drugs.push(set);return set}
+function drugName(id){const d=DRUGS.find(x=>x.id===id);return d?d.name:'(unknown)'}
+function backdate(d){return S.clock-d.given}
+
+/* ---------- UI: review & drugs ---------- */
+function esc(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
+function statusTag(s){return '<span class="tag '+(s==='confirmed'?'g':s==='rejected'?'r':'w')+'">'+s+'</span>'}
+function renderReview(){
+  const L=$('#reviewlist');let h='';
+  if(!S.readings.length)h='<div class="small">No readings yet. Capture one on the Monitor tab.</div>';
+  for(const s of S.readings.slice().reverse()){
+    const edit=s._edit;
+    h+='<div class="card '+(s.status==='confirmed'?'conf':s.status==='rejected'?'rej':(s.flags.length?'flag':''))+'" data-id="'+s.id+'"><b>Case time '+fmt(s.capT)+'</b> '+statusTag(s.status)+(s.params&&Object.values(s.params).some(p=>p.edited)?'<span class="tag w">edited</span>':'')+'<span class="small"> captured '+esc(s.source)+(s.cond!=='none'?' ['+esc(CONDS[s.cond])+']':'')+'</span>';
+    h+='<table style="margin:6px 0"><tr>'+PARAMS.map(k=>'<th>'+PLABEL[k]+'</th>').join('')+'</tr><tr>'+PARAMS.map(k=>{const p=s.params[k];
+      if(edit)return '<td><input data-k="'+k+'" value="'+(p.val==null?'':p.val)+'" size="4" inputmode="numeric"></td>';
+      return '<td>'+(p.val==null?'<span class="small">blank</span>':'<b>'+p.val+'</b>')+(p.edited?'<div class="small">read: '+(p.read.val==null?'none':p.read.val)+'</div>':'<div class="small">'+(p.read.status==='none'?'no read':'conf '+p.read.conf)+'</div>')+'</td>'}).join('')+'</tr></table>';
+    h+=s.flags.map(f=>'<span class="tag '+(f.t==='range'||f.t==='frozen'||f.t==='stale'||f.t==='nibp'?'r':'w')+'" title="'+esc(f.m)+'">'+esc(f.m)+'</span>').join('<br>');
+    h+='<div style="margin-top:6px">';
+    if(edit){h+='<button class="b p" data-a="save">Save edit</button> <button class="b" data-a="cancel">Cancel</button><div class="small">Note (optional): <input data-note="1" size="36" placeholder="e.g. artifact, cuff reposition"></div>'}
+    else{if(s.status!=='confirmed')h+='<button class="b p" data-a="confirm">Confirm</button> ';
+      h+='<button class="b" data-a="edit">Edit</button> ';
+      if(s.status!=='rejected')h+='<button class="b" data-a="reject">Reject (not charted)</button> ';
+      if(s.status==='rejected')h+='<button class="b" data-a="restore">Restore</button> '}
+    h+='</div><details class="small"><summary>History ('+s.history.length+')</summary>'+s.history.map(x=>'<div>'+esc(x.at.slice(11,19))+' UTC, case '+fmt(x.caseT)+', '+esc(x.who)+': '+esc(x.what)+'</div>').join('')+'</details></div>'}
+  L.innerHTML=h}
+function recomputeFlags(){S.readings.forEach(s=>{s.flags=computeFlags(s)})}
+function hist(o,who,what){o.history.push({at:wall(),caseT:S.clock,who,what})}
+function __b1(){$('#reviewlist').addEventListener('click',e=>{
+  const b=e.target.closest('button');if(!b)return;const card=b.closest('.card'),s=S.readings.find(x=>x.id===card.dataset.id),a=b.dataset.a;if(!s)return;
+  if(a==='confirm'){s.status='confirmed';hist(s,'you','confirmed'+(s.flags.length?' with '+s.flags.length+' flag(s) shown':''))}
+  if(a==='reject'){s.status='rejected';hist(s,'you','rejected, not charted')}
+  if(a==='restore'){s.status='pending';hist(s,'you','restored to pending')}
+  if(a==='edit'){s._edit=true}
+  if(a==='cancel'){s._edit=false}
+  if(a==='save'){const note=card.querySelector('[data-note]').value.trim();const ch=[];
+    card.querySelectorAll('input[data-k]').forEach(i=>{const k=i.dataset.k,raw=i.value.trim(),nv=raw===''?null:parseFloat(raw);if(raw!==''&&isNaN(nv))return;const old=s.params[k].val;if(nv!==old){ch.push(PLABEL[k]+' '+(old==null?'blank':old)+' to '+(nv==null?'blank':nv));s.params[k].val=nv;s.params[k].edited=true}});
+    s._edit=false;if(ch.length){s.status='pending';hist(s,'you','edited: '+ch.join('; ')+(note?' ('+note+')':'')+'. Needs confirm again.')}else hist(s,'you','edit saved, no changes')}
+  recomputeFlags();renderReview();renderChart();updateBadges()});}
+
+function renderDrugs(){
+  const L=$('#druglist');let h='';if(!S.drugs.length)h='<div class="small">No entries yet.</div>';
+  for(const d of S.drugs.slice().reverse()){
+    const edit=d._edit,bd=backdate(d);
+    h+='<div class="card '+(d.status==='confirmed'?'conf':d.status==='rejected'?'rej':(d.hold.length||d.warn.length?'flag':''))+'" data-id="'+d.id+'">';
+    h+='<div class="small">You said: "'+esc(d.raw)+'"</div>';
+    if(edit){h+='<div class="row" style="margin:6px 0"><select data-f="drug">'+DRUGS.map(x=>'<option value="'+x.id+'"'+(x.id===d.drug?' selected':'')+'>'+x.name+' ('+x.unit+')</option>').join('')+'</select> dose <input data-f="dose" size="6" value="'+(d.dose==null?'':d.dose)+'"> time given <input data-f="given" size="6" value="'+fmt(d.given)+'" placeholder="HH:MM"></div>'}
+    else h+='<div style="font-size:18px;margin:4px 0"><b>'+esc(d.drug?drugName(d.drug):'?')+' '+(d.dose==null?'?':d.dose)+' '+esc(d.unit||'')+'</b> given at <b>'+fmt(d.given)+'</b> '+statusTag(d.status)+(d.edited?'<span class="tag w">edited</span>':'')+'</div>';
+    h+='<div class="small">Given time: '+esc(d.givenSrc)+'. Entered at case time '+fmt(d.enteredCase)+(bd>0?' (<b>backdated '+bd+' min</b>)':bd<0?' (<b>future-dated '+(-bd)+' min</b>)':'')+'.</div>';
+    h+=d.hold.map(x=>'<span class="tag r">Hold: '+esc(x)+'</span>').join('<br>')+d.warn.map(x=>'<span class="tag w">'+esc(x)+'</span>').join('<br>');
+    h+='<div style="margin-top:6px">';
+    if(edit)h+='<button class="b p" data-a="save">Save edit</button> <button class="b" data-a="cancel">Cancel</button> <input data-note="1" size="30" placeholder="note (optional)">';
+    else{if(d.status!=='confirmed')h+='<button class="b p" data-a="confirm"'+(d.hold.length||d.dose==null||!d.drug?' disabled':'')+'>Confirm</button> ';
+      h+='<button class="b" data-a="edit">Edit</button> '+(d.status!=='rejected'?'<button class="b" data-a="reject">Reject (not charted)</button>':'<button class="b" data-a="restore">Restore</button>')}
+    h+='</div><details class="small"><summary>History ('+d.history.length+')</summary>'+d.history.map(x=>'<div>'+esc(x.at.slice(11,19))+' UTC, case '+fmt(x.caseT)+', '+esc(x.who)+': '+esc(x.what)+'</div>').join('')+'</details></div>'}
+  L.innerHTML=h}
+function parseHHMM(s){const m=s.trim().match(/^(\d{1,2}):?(\d{2})$/);if(!m)return null;const h=+m[1],mi=+m[2];return(h>23||mi>59)?null:h*60+mi}
+function __b2(){$('#druglist').addEventListener('click',e=>{
+  const b=e.target.closest('button');if(!b)return;const card=b.closest('.card'),d=S.drugs.find(x=>x.id===card.dataset.id),a=b.dataset.a;if(!d)return;
+  if(a==='confirm'){d.status='confirmed';hist(d,'you','confirmed: '+drugName(d.drug)+' '+d.dose+' '+d.unit+' at '+fmt(d.given))}
+  if(a==='reject'){d.status='rejected';hist(d,'you','rejected, not charted')}
+  if(a==='restore'){d.status='pending';hist(d,'you','restored to pending')}
+  if(a==='edit')d._edit=true;if(a==='cancel')d._edit=false;
+  if(a==='save'){const note=card.querySelector('[data-note]').value.trim(),ch=[];
+    const nd=card.querySelector('[data-f=drug]').value,ndose=parseFloat(card.querySelector('[data-f=dose]').value),ng=parseHHMM(card.querySelector('[data-f=given]').value);
+    if(isNaN(ndose)||ng==null){alert('Dose must be a number and time must be HH:MM.');return}
+    const dd=DRUGS.find(x=>x.id===nd);
+    if(nd!==d.drug){ch.push('drug '+drugName(d.drug)+' to '+dd.name);d.drug=nd;d.unit=dd.unit}
+    if(ndose!==d.dose){ch.push('dose '+d.dose+' to '+ndose);d.dose=ndose}
+    if(ng!==d.given){ch.push('time given '+fmt(d.given)+' to '+fmt(ng));d.given=ng;d.givenSrc='edited by you'}
+    d._edit=false;d.hold=[];d.warn=d.warn.filter(w=>false);
+    if(ch.length){d.edited=true;d.status='pending';hist(d,'you','edited: '+ch.join('; ')+(note?' ('+note+')':'')+'. Needs confirm again.')}else hist(d,'you','edit saved, no changes')}
+  renderDrugs();renderChart();updateBadges()});}
+function doParse(txt){if(!txt.trim())return;const p=parseDrug(txt,S.clock);addDrug(p);renderDrugs();updateBadges()}
+function __b3(){$('#dparse').onclick=()=>{doParse($('#dtext').value);$('#dtext').value=''}}
+/* ---------- rhythm entries (clinician typed; never inferred from HR) ---------- */
+S.rhythm=[];
+function addRhythm(text,given,src){
+  const r={id:nid('R'),kind:'rhythm',status:'pending',text:text,given:given,givenSrc:src,enteredCase:S.clock,enteredWall:wall(),orig:{text:text,given:given},history:[],edited:false};
+  r.history.push({at:wall(),caseT:S.clock,who:'entry',what:'typed by you: "'+text+'" for '+fmt(given)});S.rhythm.push(r);return r}
+function renderRhythm(){
+  const L=$('#rhythmlist');if(!L)return;let h='';if(!S.rhythm.length)h='<div class="small">No rhythm entries yet.</div>';
+  for(const d of S.rhythm.slice().reverse()){const edit=d._edit,bd=S.clock-d.given;
+    h+='<div class="card '+(d.status==='confirmed'?'conf':d.status==='rejected'?'rej':'')+'" data-id="'+d.id+'">';
+    if(edit)h+='<div class="row" style="margin:6px 0">rhythm <input data-f="text" size="8" maxlength="6" value="'+esc(d.text)+'"> time <input data-f="given" size="6" value="'+fmt(d.given)+'" placeholder="HH:MM"></div>';
+    else h+='<div style="font-size:18px;margin:4px 0">Rhythm <b>'+esc(d.text)+'</b> at <b>'+fmt(d.given)+'</b> '+statusTag(d.status)+(d.edited?'<span class="tag w">edited</span>':'')+'</div>';
+    h+='<div class="small">Time: '+esc(d.givenSrc)+'. Entered at case time '+fmt(d.enteredCase)+(bd>0&&d.enteredCase-d.given>0?' (<b>backdated '+(d.enteredCase-d.given)+' min</b>)':'')+'.</div><div style="margin-top:6px">';
+    if(edit)h+='<button class="b p" data-a="save">Save edit</button> <button class="b" data-a="cancel">Cancel</button> <input data-note="1" size="30" placeholder="note (optional)">';
+    else{if(d.status!=='confirmed')h+='<button class="b p" data-a="confirm">Confirm</button> ';
+      h+='<button class="b" data-a="edit">Edit</button> '+(d.status!=='rejected'?'<button class="b" data-a="reject">Reject (not charted)</button>':'<button class="b" data-a="restore">Restore</button>')}
+    h+='</div><details class="small"><summary>History ('+d.history.length+')</summary>'+d.history.map(x=>'<div>'+esc(x.at.slice(11,19))+' UTC, case '+fmt(x.caseT)+', '+esc(x.who)+': '+esc(x.what)+'</div>').join('')+'</details></div>'}
+  L.innerHTML=h}
+function doAddRhythm(){const t=$('#rtext').value.trim(),ts=$('#rtime').value.trim();if(!t){alert('Type the rhythm you see, for example SR.');return}
+  let g=S.clock,src='entry time (now)';if(ts){g=parseHHMM(ts);if(g==null){alert('Time must be HH:MM.');return}src='typed by you'}
+  const nr=addRhythm(t.slice(0,6),g,src);if(t.slice(0,6)==='SR'&&!window.__rTouched)nr.history[0].what='default SR accepted for '+fmt(g)+' (pre-filled default; not detected by the tool)';$('#rtext').value='SR';window.__rTouched=false;$('#rtime').value='';renderRhythm();updateBadges()}
+function __bR(){$('#radd').onclick=doAddRhythm;$('#rtext').addEventListener('input',()=>{window.__rTouched=true});
+  $('#rhythmlist').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;const card=b.closest('.card'),d=S.rhythm.find(x=>x.id===card.dataset.id),a=b.dataset.a;if(!d)return;
+    if(a==='confirm'){d.status='confirmed';hist(d,'you','confirmed: '+d.text+' at '+fmt(d.given))}
+    if(a==='reject'){d.status='rejected';hist(d,'you','rejected, not charted')}
+    if(a==='restore'){d.status='pending';hist(d,'you','restored to pending')}
+    if(a==='edit')d._edit=true;if(a==='cancel')d._edit=false;
+    if(a==='save'){const note=card.querySelector('[data-note]').value.trim(),ch=[];const nt=card.querySelector('[data-f=text]').value.trim().slice(0,6),ng=parseHHMM(card.querySelector('[data-f=given]').value);
+      if(!nt||ng==null){alert('Rhythm text is required and time must be HH:MM.');return}
+      if(nt!==d.text){ch.push('rhythm '+d.text+' to '+nt);d.text=nt}if(ng!==d.given){ch.push('time '+fmt(d.given)+' to '+fmt(ng));d.given=ng;d.givenSrc='edited by you'}
+      d._edit=false;if(ch.length){d.edited=true;d.status='pending';hist(d,'you','edited: '+ch.join('; ')+(note?' ('+note+')':'')+'. Needs confirm again.')}else hist(d,'you','edit saved, no changes')}
+    renderRhythm();renderChart();updateBadges()})}
+/* ---------- chart ---------- */
+const CH={k:2.55,gx0:200,gx1:960,cols:14,phase:0}; // phase: 15-min record marks sit at slot index%3==phase (0 = on the bold lines); win: minutes either side of a mark
+const SLOTS=84; // 5-min slots in 7 h
+function slotOf(t){return Math.round((t-START)/5)}
+function buildChartModel(){
+  const meds=S.drugs.filter(d=>d.status==='confirmed'&&d.drug&&d.dose!=null);
+  const vit=S.readings.filter(s=>s.status==='confirmed').sort((a,b)=>a.capT-b.capT);
+  const slots={},np=[],btw=[],occ={};const LB={hr:'HR',spo2:'SpO2',co2:'CO2',rr:'RR',sys:'SYS',dia:'DIA',map:'MAP'};const C15=['spo2','co2','rr'];
+  vit.forEach(s=>{const i=slotOf(s.capT);if(i<0||i>=SLOTS){const t=PARAMS.filter(k=>s.params[k].val!=null).map(k=>LB[k]+' '+s.params[k].val).join(', ');if(t)np.push(fmt(s.capT)+' '+t+' (outside chart time range)');return}
+    slots[i]=slots[i]||{};const off=[];PARAMS.forEach(k=>{const p=s.params[k];if(p.val==null)return;if(C15.includes(k))return;
+      if(slots[i][k]&&occ[i+k])np.push(fmt(occ[i+k])+' '+LB[k]+' '+slots[i][k].v+' (replaced on chart by later reading in same 5-min column)');
+      slots[i][k]={v:p.val,ed:p.edited};occ[i+k]=s.capT});});
+  const rhy=S.rhythm.filter(r=>r.status==='confirmed'),rs={};rhy.forEach(r=>{const i=3*Math.floor((r.given-START)/15);if(i<0||i>=SLOTS){np.push(fmt(r.given)+' rhythm '+r.text+' (outside chart time range)');return}
+    if(rs[i])np.push(fmt(rs[i].given)+' rhythm '+rs[i].text+' (replaced on chart by later entry in same 15-min block)');rs[i]=r});
+  const rec={},usedSets=new Set();
+  vit.forEach(s=>{if(s.recFor==null)return;const m=slotOf(s.recFor);if(m<0||m>=SLOTS)return;usedSets.add(s);rec[m]=rec[m]||{};C15.forEach(k=>{const v=s.params[k];if(v.val!=null)rec[m][k]={v:v.val,ed:v.edited,capT:s.capT,mt:s.recFor}})});
+  vit.forEach(s=>{if(s.recFor==null&&C15.some(k=>s.params[k].val!=null))btw.push(fmt(s.capT))});
+  return {meds,slots,vit,np,btw,rec,usedSets,rs,hidden:{pending:S.readings.filter(s=>s.status==='pending').length+S.drugs.filter(d=>d.status==='pending').length+S.rhythm.filter(d=>d.status==='pending').length,rejected:S.readings.filter(s=>s.status==='rejected').length+S.drugs.filter(d=>d.status==='rejected').length+S.rhythm.filter(d=>d.status==='rejected').length}}}
+function renderChartTo(cv){
+  const c=cv.getContext('2d'),k=CH.k;c.setTransform(1,0,0,1,0,0);c.fillStyle='#fff';c.fillRect(0,0,cv.width,cv.height);c.setTransform(k,0,0,k,0,0);
+  const M=buildChartModel();
+  const L=(x0,y0,x1,y1,w,col)=>{c.strokeStyle=col||'#111';c.lineWidth=w||.8;c.beginPath();c.moveTo(x0,y0);c.lineTo(x1,y1);c.stroke()};
+  const R=(x,y,w,h,lw)=>{c.strokeStyle='#111';c.lineWidth=lw||.9;c.strokeRect(x,y,w,h)};
+  const T=(s,x,y,sz,o)=>{o=o||{};c.fillStyle=o.col||'#111';c.font=(o.b?'bold ':'')+sz+'px '+FONT;c.textAlign=o.al||'left';c.textBaseline=o.bl||'middle';c.fillText(s,x,y)};
+  const F=(x,y,w,h,col)=>{c.fillStyle=col;c.fillRect(x,y,w,h)};
+  const box=(x,y,on)=>{c.strokeStyle='#111';c.lineWidth=.7;c.strokeRect(x,y-3,6,6)};
+  T('Facility: Scottsdale Plastic Surgeons',40,30,8.5,{b:1});T('ANESTHESIA RECORD',500,52,26,{b:1,al:'center'});
+  T('DEMO - SYNTHETIC DATA - NOT A MEDICAL RECORD',960,30,8.5,{b:1,al:'right',col:'#a00'});
+  // header row
+  R(40,70,380,66);T('PROCEDURE',44,77,8,{b:1});T('(demo, no case entered)',50,108,12,{col:'#777'});
+  R(420,70,140,66);T('DATE',424,77,8,{b:1});
+  R(560,70,180,66);T('SURGEON',564,77,8,{b:1});box(566,95);T('Dr Holden',576,95,9.5);box(566,115);T('Dr Tsujimara',576,115,9.5);
+  F(740,70,90,66,'#fff');R(740,70,90,66);T('ANESTHESIA',785,100,8,{b:1,al:'center'});T('SURGERY',785,122,8,{b:1,al:'center'});
+  R(830,70,65,66);R(895,70,65,66);L(830,103,960,103);T('START',862,77,8,{b:1,al:'center'});T('STOP',927,77,8,{b:1,al:'center'});
+  // panels
+  const px=[40,271,486,687,960];const ptitle=['PRE-OP & SAFETY','STANDARD SETUP','TECHNIQUE & AIRWAY','FLUIDS & CASE DATA'];
+  const items=[['See pre-anesthesia record','Safety belt secured','Arms tucked','Pressure points checked','   and padded'],['To OR / standard ASA monitors','IV   EKG   SpO2   EtCO2','Temp   IV induction','Eyes lubricated   Taped','Foley catheter','Patient positioning:'],['General   MAC   Regional','Mask  LMA  ETT  Natural','Preoxygenation','Spontaneous ventilation','LMA placed   Size:','Attempts:'],['Crystalloid ___ mL  Colloid ___ mL','Blood ___ mL   EBL ___ mL','Urine ___ mL   Other ___ mL']];
+  for(let i=0;i<4;i++){R(px[i],142,px[i+1]-px[i],122);F(px[i],142,px[i+1]-px[i],12,'#222');T(ptitle[i],px[i]+4,148,8,{b:1,col:'#fff'});
+    if(i<3){const sh=setupShown();SETUP_GROUPS[i].rows.forEach((row,j)=>{const y=166+j*15;let x=px[i]+6;row.forEach(it=>{const k=it[0];
+      if(k[0]==='T'){const v=S.setup.text[k.slice(2)];T(it[1],x,y,8.3);x+=it[1].length*4.5+4;if(sh&&v)T(v,x,y,8.3,{col:'#0a64c8'});x+=8*4.5+6}
+      else{box(x,y);if(sh&&S.setup.checks[k]){c.strokeStyle='#0a64c8';c.lineWidth=1.2;c.beginPath();c.moveTo(x+.5,y-.5);c.lineTo(x+2.5,y+2.8);c.lineTo(x+7.5,y-5);c.stroke()}T(it[1],x+9,y,8.3);x+=9+it[1].length*4.5+8}})})}
+    else items[i].forEach((s,j)=>{T(s,px[i]+6,166+j*15,8.3)})}
+  if(setupShown()){const st=S.setup,v=st.times;T(st.date,490,108,11,{b:1,al:'center',col:'#0a64c8'});
+    [[v.as,v.ae,92],[v.ss,v.se,120]].forEach(a=>{if(a[0])T(a[0],862,a[2],9.5,{al:'center',col:'#0a64c8'});if(a[1])T(a[1],927,a[2],9.5,{al:'center',col:'#0a64c8'})})}
+  // time row
+  const {gx0,gx1}=CH,cw=(gx1-gx0)/CH.cols,sw=cw/6;
+  F(40,272,160,14,'#222');T('TIME',44,279,8,{b:1,col:'#fff'});
+  for(let i=0;i<CH.cols;i++){const t=START+i*30;T(fmt(t),gx0+i*cw+2,279,8.5,{b:1})}
+  R(gx0,272,gx1-gx0,14);
+  // medication grid
+  const my0=286,mh=12.5,nrow=16;F(40,my0,160,12,'#222');T('MEDICATION / DOSE',44,my0+6,8,{b:1,col:'#fff'});
+  const gridV=(y0,y1,per)=>{per=per||6;for(let s=0;s<=CH.cols*6;s++){const x=gx0+s*sw;const major=s%per===0;L(x,y0,x,y1,major?.9:.25,major?'#111':'#999')}};
+  gridV(my0,my0+12+nrow*mh);
+  for(let r=0;r<=nrow;r++){const y=my0+12+r*mh;L(40,y,gx1,y,.5,'#555')}
+  F(40,my0,0,0,'#fff');R(40,my0,gx1-40,12+nrow*mh);
+  ROWS.forEach((s,r)=>{T(s,43,my0+12+r*mh+mh/2,7.2)});
+  T('drug grid: 5 min light lines, 30 min dark lines',gx1-2,my0+6,6,{al:'right',col:'#888'});
+  const xOf=t=>gx0+(t-START)/30*cw;
+  const rowY=r=>my0+12+r*mh+mh/2;
+  const gtt=M.meds.filter(d=>d.drug==='propgtt').sort((a,b)=>a.given-b.given);
+  M.meds.forEach(d=>{const dr=DRUGS.find(x=>x.id===d.drug);if(!dr)return;const x=xOf(d.given);if(x<gx0||x>gx1)return;
+    const y=rowY(dr.row);const lbl=(d.drug==='clinda'?'C ':'')+d.dose+(d.edited?'*':'');
+    L(x,y-5,x,y+5,.5,'#06c');T(lbl,x+1.5,y,8,{b:1,col:'#06c'})});
+  gtt.forEach((d,i)=>{const x=xOf(d.given),nx=gtt[i+1]?xOf(gtt[i+1].given):Math.min(gx1,xOf(Math.max(S.clock,d.given)));const y=rowY(11)+3.5;L(x+16,y,Math.max(x+16,nx),y,1,'#06c')});
+  // vitals
+  const vy0=my0+12+nrow*mh+8;F(40,vy0,160,12,'#222');T('VITALS',44,vy0+6,8,{b:1,col:'#fff'});
+  const vrows=['EKG','SpO2','End tidal CO2','Temp'],vh=13;
+  gridV(vy0+12,vy0+12+4*vh,3);
+  vrows.forEach((s,i)=>{const y=vy0+12+i*vh;L(40,y,gx1,y,.5,'#555');T(s,43,y+vh/2,8,{b:1})});
+  R(40,vy0+12,gx1-40,4*vh);
+  const vnum=(row,key,v)=>{};
+  const gy0=vy0+12+4*vh+4,gh=410,gy1=gy0+gh;const yv=v=>gy1-v/200*gh;
+  gridV(gy0,gy1,3);
+  for(let v=0;v<=200;v+=10){L(gx0-4,yv(v),gx1,yv(v),v%20===0?.9:.3,v%20===0?'#555':'#aaa');if(v%20===0)T(String(v),gx0-8,yv(v),8,{al:'right'})}
+  R(gx0,gy0,gx1-gx0,gh);R(40,gy0,gx1-40,gh,.9);
+  T('mmHg / bpm',44,gy0+8,7,{col:'#777'});
+  const rry=gy1+4;L(40,rry,gx1,rry,.5);T('Respiratory Rate',43,rry+7,8,{b:1});const posy=rry+14;L(40,posy,gx1,posy,.5);T('Position',43,posy+7,8,{b:1});R(40,rry,gx1-40,28);gridV(rry,rry+28,3);
+  const sx=i=>gx0+i*sw;
+  Object.keys(M.slots).forEach(si=>{const i=+si,d=M.slots[si],x=sx(i);
+    if(d.hr){c.fillStyle='#06c';c.beginPath();c.arc(x,yv(d.hr.v),2.2,0,7);c.fill();if(d.hr.ed)T('*',x+3,yv(d.hr.v)-4,8,{col:'#06c'})}
+    if(d.sys&&d.dia){c.strokeStyle='#06c';c.lineWidth=1.1;const ys=yv(d.sys.v),yd=yv(d.dia.v);c.beginPath();c.moveTo(x-3.2,ys-4);c.lineTo(x,ys);c.lineTo(x+3.2,ys-4);c.moveTo(x-3.2,yd+4);c.lineTo(x,yd);c.lineTo(x+3.2,yd+4);c.stroke();if(d.sys.ed||d.dia.ed)T('*',x+4,ys-4,8,{col:'#06c'})}
+    else{if(d.sys){const ys=yv(d.sys.v);c.strokeStyle='#06c';c.lineWidth=1.1;c.beginPath();c.moveTo(x-3.2,ys-4);c.lineTo(x,ys);c.lineTo(x+3.2,ys-4);c.stroke()}if(d.dia){const yd=yv(d.dia.v);c.strokeStyle='#06c';c.lineWidth=1.1;c.beginPath();c.moveTo(x-3.2,yd+4);c.lineTo(x,yd);c.lineTo(x+3.2,yd+4);c.stroke()}}
+  });
+  const fn=[];const lab=(txt,xc,y,ed,ct,bs,nm)=>{const late=ct!==bs;T(txt+(ed?'*':'')+(late?'\u2020':''),xc,y,6.2,{b:1,al:'center',col:'#06c'});if(late)fn.push(nm+' '+txt+' at '+fmt(ct)+' (block '+fmt(bs)+')')};
+  Object.keys(M.rec).forEach(mi=>{const d=M.rec[mi],xc=sx(+mi)+1.5*sw;if(d.spo2)lab(String(d.spo2.v),xc,vy0+12+1*vh+vh/2,d.spo2.ed,d.spo2.capT,d.spo2.mt,'SpO2');if(d.co2)lab(String(d.co2.v),xc,vy0+12+2*vh+vh/2,d.co2.ed,d.co2.capT,d.co2.mt,'CO2');if(d.rr)lab(String(d.rr.v),xc,rry+7,d.rr.ed,d.rr.capT,d.rr.mt,'RR')});
+  Object.keys(M.rs).forEach(si=>{const r=M.rs[si];lab(r.text,sx(+si)+1.5*sw,vy0+12+vh/2,r.edited,r.given,START+5*(+si),'rhythm')});
+  F(gx0,vy0,gx1-gx0,12,'#222');for(let j=0;j<CH.cols*2;j++){const x=gx0+j*3*sw;L(x,vy0,x,vy0+12,.9,'#fff');T(fmt(START+j*15),x+1.5,vy0+6,5.8,{b:1,col:'#fff'})}
+  // bottom
+  const by=posy+34;
+  R(40,by,350,180);F(40,by,350,12,'#222');T('PATIENT STICKER / IDENTIFICATION',44,by+6,8,{b:1,col:'#fff'});T('(no patient data in this demo)',215,by+95,9,{al:'center',col:'#aaa'});
+  R(400,by,200,70);T('Recovery:',404,by+8,8.5);box(445,by+8);T('see post-anesthesia record',455,by+8,8);
+  T('SYMBOLS',404,by+22,8,{b:1});T('X Anesthesia',404,by+33,7.5);T('V BP cuff pressure',404,by+43,7.5);T('● Pulse',500,by+33,7.5);T('O Spont. resp.',500,by+43,7.5);T('Ø Assisted resp.',404,by+53,7.5);
+  R(400,by+76,200,52);T('PROVIDER NAME',404,by+84,8,{b:1});R(400,by+128,200,52);T('PROVIDER SIGNATURE',404,by+136,8,{b:1});
+  const cx=610;R(cx,by,350,110);F(cx,by,350,12,'#222');T('CONTROLLED DRUGS',cx+4,by+6,8,{b:1,col:'#fff'});
+  const cr=['Fentanyl (mcg)','Dilaudid (mg)','Versed (mg)','Demerol (mg)'];T('Drug',cx+70,by+19,7.5,{b:1,al:'center'});['Issued','Used','Waste'].forEach((s,i)=>T(s,cx+175+i*58,by+19,7.5,{b:1,al:'center'}));
+  cr.forEach((s,i)=>{const y=by+26+i*21;L(cx,y-2,cx+350,y-2,.5);T(s,cx+4,y+8,8)});L(cx+138,by+12,cx+138,by+110,.5);L(cx+204,by+12,cx+204,by+110,.5);L(cx+262,by+12,cx+262,by+110,.5);
+  R(cx,by+116,350,64);T('WASTE WITNESS / INITIALS',cx+4,by+124,8,{b:1});T('Controlled-drug issued/used/waste and witness: manual',cx+346,by+170,6.5,{al:'right',col:'#888'});
+  // footer
+  const fy=by+192;
+  T('* = value or time edited by clinician after capture; original kept in change log (next page). Blue marks are charted only after clinician confirmation.',40,fy,7.2,{col:'#333'});
+  T('Not shown: '+M.hidden.pending+' pending (unconfirmed)'+(setupShown()?'':', case setup defaults pending (date, times, checks not charted)')+', '+M.hidden.rejected+' rejected. Printed '+new Date().toISOString().slice(0,16).replace('T',' ')+' UTC. Case clock is simulated.',40,fy+10,7.2,{col:'#333'});
+  T('Vitals grid: bold lines mark every 15 min (labeled in the dark strip). HR and BP every 5 min on the lines. SpO2, CO2, RR, EKG rhythm once per 15 min, centered between bold lines. BP arrows only. Temp, position: manual.',40,fy+20,6.8,{col:'#333'});
+  T('Rhythm, SpO2, CO2, RR: one scheduled record per 15-min block. \u2020 = actual time differs from block start (listed below). All actual times are in the change log. Blank block = no confirmed record. '+M.btw.length+' other capture set(s): change log only.',40,fy+29,6.8,{col:'#333'});
+  if(fn.length)T('\u2020 Actual time differs from the block start: '+fn.join('; ').slice(0,300),40,fy+38,6.8,{col:'#333'});
+  if(M.np.length){let txt='Confirmed but NOT plotted (actual times): '+M.np.slice().sort((a,b)=>(a.includes('off-mark')?1:0)-(b.includes('off-mark')?1:0)).join('; ');const ln=[];while(txt.length>0&&ln.length<2){let cut=txt.length>215?txt.lastIndexOf('; ',215)+1||215:txt.length;ln.push(txt.slice(0,cut).trim());txt=txt.slice(cut).trim()}
+    if(txt){const q=ln[1].lastIndexOf('; ');ln[1]=ln[1].slice(0,q>100?q:190)+'; ... and more, all listed in the change log'};ln.forEach((s,i)=>T(s,40,fy+(fn.length?47:38)+i*9,6.8,{col:'#a00'}))}
+  c.setTransform(1,0,0,1,0,0)}
+function renderLogPages(){
+  const pages=[];let cv,c,y;const k=CH.k;
+  const np=()=>{cv=document.createElement('canvas');cv.width=2550;cv.height=3300;c=cv.getContext('2d');c.fillStyle='#fff';c.fillRect(0,0,2550,3300);c.setTransform(k,0,0,k,0,0);c.fillStyle='#111';c.font='bold 18px '+FONT;c.textBaseline='top';c.fillText('Change log (demo, synthetic data)  page '+(pages.length+1),40,36);c.font='10px '+FONT;c.fillStyle='#a00';c.fillText('DEMO - SYNTHETIC DATA - NOT A MEDICAL RECORD',40,62);y=86;pages.push(cv)};
+  np();const line=(s,sz,b,col)=>{c.font=(b?'bold ':'')+sz+'px '+FONT;c.fillStyle=col||'#111';const words=s.split(' ');let cur='';const maxw=900;const rows=[];for(const w of words){const t=cur?cur+' '+w:w;if(c.measureText(t).width>maxw){rows.push(cur);cur=w}else cur=t}rows.push(cur);
+    for(const r of rows){if(y>1250){np();c.font=(b?'bold ':'')+sz+'px '+FONT;c.fillStyle=col||'#111'}c.fillText(r,40,y);y+=sz+3}};
+  const items=[];S.readings.forEach(s=>items.push({t:s.capT,o:s,kind:'v'}));S.drugs.forEach(d=>items.push({t:d.given,o:d,kind:'d'}));S.rhythm.forEach(d=>items.push({t:d.given,o:d,kind:'r'}));items.sort((a,b)=>a.t-b.t);
+  if(!items.length)line('No entries.',11);
+  items.forEach(it=>{const o=it.o;
+    if(it.kind==='v'){line('Vitals set, captured at case time '+fmt(o.capT)+' ('+o.source+'), status: '+o.status.toUpperCase(),11,1,o.status==='confirmed'?'#111':'#a00');
+      line('Read by tool: '+PARAMS.map(k=>PLABEL[k]+' '+(o.params[k].read.val==null?'none':o.params[k].read.val)).join(', '),9.5);
+      line('Final: '+PARAMS.map(k=>PLABEL[k]+' '+(o.params[k].val==null?'blank':o.params[k].val)+(o.params[k].edited?'*':'')).join(', '),9.5);
+      if(o.recFor!=null)line('Scheduled 15-min SpO2/CO2/RR record for the '+fmt(o.recFor)+'-'+fmt(o.recFor+15)+' block, actually captured at '+fmt(o.capT)+'. '+(o.status==='confirmed'?'Charted centered in that block with the capture time shown.':'Not charted while '+o.status+'.'),8.5,0,'#555');else line('Not a scheduled 15-min record: SpO2/CO2/RR in this set are kept here only. HR and BP chart at their capture time.',8.5,0,'#555')
+      o.flags.forEach(f=>line('Flag shown: '+f.m,8.5,0,'#555'))}
+    else if(it.kind==='r'){line('Rhythm entry: '+o.text+' at '+fmt(o.given)+', status: '+o.status.toUpperCase(),11,1,o.status==='confirmed'?'#111':'#a00');line('Original entry: '+o.orig.text+' at '+fmt(o.orig.given)+'. Entered at case time '+fmt(o.enteredCase)+(o.enteredCase-o.given>0?' (backdated '+(o.enteredCase-o.given)+' min)':'')+'. Typed by clinician, not inferred from HR.',9.5)}
+    else{line('Drug entry: '+(o.drug?drugName(o.drug):'?')+' '+o.dose+' '+o.unit+' given '+fmt(o.given)+', status: '+o.status.toUpperCase(),11,1,o.status==='confirmed'?'#111':'#a00');
+      line('Original entry: '+drugName(o.orig.drug)+' '+o.orig.dose+' '+(o.orig.unit||'')+' given '+fmt(o.orig.given)+'. Entered at case time '+fmt(o.enteredCase)+(o.enteredCase-o.given>0?' (backdated '+(o.enteredCase-o.given)+' min)':'')+'. Said: "'+o.raw+'"',9.5)}
+    o.history.forEach(h=>line('   '+h.at.slice(11,19)+' UTC, case '+fmt(h.caseT)+', '+h.who+': '+h.what,8.5,0,'#333'));y+=6});
+  line('Case setup (date, times, checklists), status: '+S.setup.status.toUpperCase(),11,1,setupShown()?'#111':'#a00');line('Original defaults: '+(function(o){return 'date '+o.date+' (device date); checked: '+Object.keys(o.checks).filter(k=>o.checks[k]).map(setupLabel).join(', ')+'; times blank'})(S.setup.orig),9.5);line('Current: '+setupSummary()+'; positioning "'+S.setup.text.pos+'", LMA size "'+S.setup.text.size+'", attempts "'+S.setup.text.att+'"',9.5);
+  S.setup.history.forEach(h=>line('   '+h.at.slice(11,19)+' UTC, case '+fmt(h.caseT)+', '+h.who+': '+h.what,8.5,0,'#333'));
+  return pages}
+function renderChart(){const cv=$('#chartcv');if(!cv)return;renderChartTo(cv);const M=buildChartModel();$('#chartnote').textContent='Chart shows only confirmed items: '+M.meds.length+' drug entries, '+M.vit.length+' vitals sets, '+S.rhythm.filter(d=>d.status==='confirmed').length+' rhythm entries. other SpO2/CO2/RR capture sets (change log only): '+M.btw.length+'. Other confirmed items not plotted: '+M.np.length+' (listed under the chart). Pending: '+M.hidden.pending+'. Rejected: '+M.hidden.rejected+'. Case time is simulated.'}
+function preparePrint(){const pa=$('#printarea');pa.innerHTML='';const a=document.createElement('canvas');a.width=2550;a.height=3300;renderChartTo(a);pa.appendChild(a);renderLogPages().forEach(p=>{pa.appendChild(p)})}
+/* ---------- case setup defaults (editable; pending until clinician confirms) ---------- */
+const SETUP_GROUPS=[
+ {id:'pre',title:'Pre-op & safety',rows:[[['pre1','See pre-anesthesia record']],[['pre2','Safety belt secured']],[['pre3','Arms tucked']],[['pre4','Pressure points checked and padded']]]},
+ {id:'std',title:'Standard setup',rows:[[['std1','To OR / standard ASA monitors']],[['std2','IV'],['std3','EKG'],['std4','SpO2'],['std5','EtCO2']],[['std6','Temp'],['std7','IV induction']],[['std8','Eyes lubricated'],['std9','Taped']],[['std10','Foley catheter']],[['T:pos','Patient positioning:']]]},
+ {id:'tech',title:'Technique & airway',rows:[[['tech1','General'],['tech2','MAC'],['tech3','Regional']],[['tech4','Mask'],['tech5','LMA'],['tech6','ETT'],['tech7','Natural']],[['tech8','Preoxygenation']],[['tech9','Spontaneous ventilation']],[['tech10','LMA placed'],['T:size','Size:']],[['T:att','Attempts:']]]}];
+const SETUP_DEFAULT_ON=['pre1','pre2','pre3','pre4','std1','std2','std3','std4','std5','std6','std7','std8','std9','std10','tech1','tech8','tech9','tech5'];
+const SETUP_TIMES=[['as','Anesthesia start'],['ae','Anesthesia stop'],['ss','Surgery start'],['se','Surgery stop']];
+function setupLabel(k){for(const g of SETUP_GROUPS)for(const r of g.rows)for(const it of r)if(it[0]===k)return it[1].replace(/:$/,'');return k}
+function setupSnap(){return JSON.stringify({date:S.setup.date,times:S.setup.times,checks:S.setup.checks,text:S.setup.text})}
+function setupInitState(){const checks={};SETUP_GROUPS.forEach(g=>g.rows.forEach(r=>r.forEach(it=>{if(it[0][0]!=='T')checks[it[0]]=SETUP_DEFAULT_ON.includes(it[0])})));
+  const d=new Date(),iso=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  S.setup={timeMode:'device',status:'pending',date:iso,times:{as:'',ae:'',ss:'',se:''},checks:checks,text:{pos:'',size:'',att:''},history:[],edited:false};
+  S.setup.orig=JSON.parse(setupSnap());
+  S.setup.history.push({at:wall(),caseT:S.clock,who:'default',what:'defaults loaded: date '+iso+' (device date, not a surgery lookup), pre-op/safety and standard setup all checked, General, Preoxygenation, Spontaneous ventilation and LMA checked. Times blank. Pending your confirmation; not detected or performed facts.'})}
+function setupLog(what){S.setup.history.push({at:wall(),caseT:S.clock,who:'you',what:what});if(S.setup.status==='confirmed'){S.setup.status='pending';S.setup.history.push({at:wall(),caseT:S.clock,who:'system',what:'review status reset to PENDING after a change; confirm again before the chart shows it'})}S.setup.edited=true}
+function setupShown(){return S.setup.status==='confirmed'}
+function renderSetup(){const el=$('#setupcard');if(!el)return;const s=S.setup;
+  let h='<b>Case setup defaults</b><div class="small">Pre-filled defaults that you can change: pre-op/safety and standard setup checked, plus General, Preoxygenation, Spontaneous ventilation and LMA. A checked default is not a record that the step was done. Nothing prints on the chart until you confirm. Any change sends it back to pending. The surgery date starts from this device\'s date (no calendar lookup): replace it with the surgery date. Times are blank until you enter or stamp them; the tool does not decide which event sets a time.</div>';
+  h+='<div class="row" style="margin:6px 0"><b>Surgery date</b> (prefilled from device date, NOT verified: set the real surgery date) <input type="date" id="sdate" value="'+esc(s.date)+'"> status: <b>'+s.status.toUpperCase()+'</b>'+(s.edited?' (edited)':'')+' <button class="b p" id="sconf"'+(s.status==='confirmed'?' disabled':'')+'>Confirm setup</button></div>';
+  h+='<div class="row" style="margin:6px 0">Time source <select id="stmode"><option value="device"'+(s.timeMode==='device'?' selected':'')+'>Device local time (real clock)</option><option value="demo"'+(s.timeMode==='demo'?' selected':'')+'>Demo case clock (simulated)</option></select> <span class="small">Start/stop buttons and commands stamp the chosen clock; nothing detects the surgery event. Every stamp is editable and its source is logged.</span></div>';
+  h+='<div class="row" style="margin:6px 0">'+SETUP_TIMES.map(t=>t[1]+' <input data-st="'+t[0]+'" size="6" placeholder="HH:MM" value="'+esc(s.times[t[0]])+'"> <button class="b" data-stamp="'+t[0]+'">Stamp now</button>').join('<br>')+'</div>';
+  h+='<div class="row" style="margin:6px 0">Command <input id="scmd" size="30" placeholder="e.g. anesthesia start, surgery stop at 10:42"> <button class="b" id="scmdgo">Run command</button> <button class="b" id="scmdvoice">Speak command</button> <span class="small" id="scmdstat"></span></div><div class="small">Commands: anesthesia start/stop, surgery start/stop. Optional "at HH:MM". It only fills the time field above (from the clock chosen above unless you say a time). The result stays pending until you confirm, and you can edit it. A time spoken in the command overrides the clock. Typed commands and the buttons are tested. The microphone path is untested.</div>';
+  h+='<div class="row" style="align-items:flex-start;gap:14px">'+SETUP_GROUPS.map(g=>'<div><b>'+g.title+'</b>'+g.rows.map(r=>'<div>'+r.map(it=>it[0][0]==='T'?it[1]+' <input data-sx="'+it[0].slice(2)+'" size="9" value="'+esc(s.text[it[0].slice(2)])+'">':'<label><input type="checkbox" data-sk="'+it[0]+'"'+(s.checks[it[0]]?' checked':'')+'> '+it[1]+'</label>').join(' &nbsp;')+'</div>').join('')+'</div>').join('')+'</div>';
+  h+='<details style="margin-top:6px"><summary class="small">Setup history ('+s.history.length+')</summary>'+s.history.map(x=>'<div class="small">'+x.at.slice(11,19)+' UTC, case '+fmt(x.caseT)+', '+x.who+': '+esc(x.what)+'</div>').join('')+'</details>';
+  el.innerHTML=h;renderTimeBar();
+  el.querySelector('#sdate').onchange=e=>{const v=e.target.value;if(v!==s.date){setupLog('date '+s.date+' to '+v);s.date=v}renderSetup();renderChart();updateBadges()};
+  el.querySelector('#sconf').onclick=()=>{s.status='confirmed';s.history.push({at:wall(),caseT:S.clock,who:'you',what:'confirmed setup as shown ('+setupSummary()+')'});renderSetup();renderChart();updateBadges()};
+  el.querySelectorAll('[data-st]').forEach(i=>i.onchange=()=>{const k=i.dataset.st,v=i.value.trim();if(v&&!/^([01]?\d|2[0-3]):[0-5]\d$/.test(v)){alert('Use HH:MM, for example 09:05.');i.value=s.times[k];return}
+    const nv=v?fmt((+v.split(':')[0])*60+(+v.split(':')[1])):'';if(nv!==s.times[k]){if(nv&&!guardTime(k,nv,'typed')){i.value=s.times[k];return}setupLog(setupLabel2(k)+' time '+(s.times[k]||'blank')+' to '+(nv||'blank'));s.times[k]=nv}renderSetup();renderChart();updateBadges()});
+  el.querySelectorAll('[data-stamp]').forEach(b=>b.onclick=()=>{const k=b.dataset.stamp,ns=nowStamp(),nv=ns.v;if(!guardTime(k,nv,'button, '+ns.src))return;setupLog(setupLabel2(k)+' time '+(s.times[k]||'blank')+' to '+nv+' (button, '+ns.src+')');s.times[k]=nv;renderSetup();renderChart();updateBadges()});
+  el.querySelector('#stmode').onchange=e=>{s.timeMode=e.target.value;s.history.push({at:wall(),caseT:S.clock,who:'you',what:'time source set to '+(s.timeMode==='demo'?'demo case clock':'device local time')});renderSetup()};
+  el.querySelector('#scmdgo').onclick=()=>{const r=setupCommand(el.querySelector('#scmd').value,'typed');renderSetup();renderChart();updateBadges();const e2=$('#scmdstat');if(e2)e2.textContent=r};
+  el.querySelector('#scmdvoice').onclick=()=>{const SRc=window.SpeechRecognition||window.webkitSpeechRecognition,st=el.querySelector('#scmdstat');if(!SRc){st.textContent='Voice not supported in this browser. Type the command.';return}
+    if(!S.voiceOK){if(!confirm('Browser speech recognition may send audio to the browser vendor\'s cloud service. Do not speak patient identifiers. Continue?'))return;S.voiceOK=true}
+    const rc=new SRc();rc.lang='en-US';rc.interimResults=false;rc.onresult=ev=>{const t=ev.results[0][0].transcript;const r=setupCommand(t,'voice');renderSetup();renderChart();updateBadges();const e2=$('#scmdstat');if(e2)e2.textContent='Heard: "'+t+'". '+r};rc.onerror=ev=>{st.textContent='Voice error: '+ev.error};rc.start();st.textContent='Listening...'};
+  el.querySelectorAll('[data-sk]').forEach(i=>i.onchange=()=>{const k=i.dataset.sk;setupLog(setupLabel(k)+' '+(s.checks[k]?'checked':'unchecked')+' to '+(i.checked?'checked':'unchecked'));s.checks[k]=i.checked;renderSetup();renderChart();updateBadges()});
+  el.querySelectorAll('[data-sx]').forEach(i=>i.onchange=()=>{const k=i.dataset.sx,v=i.value.trim().slice(0,14);if(v!==s.text[k]){const nm={pos:'Patient positioning',size:'LMA size',att:'LMA attempts'}[k];setupLog(nm+' "'+s.text[k]+'" to "'+v+'"');s.text[k]=v}renderSetup();renderChart();updateBadges()})}
+function setupCommand(text,via){const t=String(text||'').toLowerCase().replace(/[.,]/g,' ').replace(/\s+/g,' ').trim();
+  const m=t.match(/^(anesthesia|anaesthesia|surgery) (start|begin|stop|end|finish|finished)(?: at (\d{1,2})(?::| )?(\d{2}))?$/);
+  if(!m)return 'Not understood, nothing changed. Say or type: anesthesia start, anesthesia stop, surgery start or surgery stop (optionally "at 9:05").';
+  const k=(m[1][0]==='s'?'s':'a')+((m[2]==='start'||m[2]==='begin')?'s':'e');
+  let nv,src;if(m[3]!==undefined){const hh=+m[3],mm=+m[4];if(hh>23||mm>59)return 'Time not valid, nothing changed.';nv=fmt(hh*60+mm);src='time spoken/typed in the command'}else{const ns=nowStamp();nv=ns.v;src='stamped from '+ns.src}
+  const old=S.setup.times[k];if(!guardTime(k,nv,via+' command'))return 'Cancelled, nothing changed.';
+  setupLog(setupLabel2(k)+' time '+(old||'blank')+' to '+nv+' ('+via+' command "'+t+'"; '+src+')');S.setup.times[k]=nv;return setupLabel2(k)+' set to '+nv+' (pending until you confirm).'}
+function tMin(v){const m=/^(\d\d):(\d\d)$/.exec(v||'');return m?(+m[1])*60+(+m[2]):null}
+function guardTime(k,nv,via){const s=S.setup,old=s.times[k],L=setupLabel2(k);
+  if(old&&old!==nv&&!confirm(L+' is already '+old+'. Replace it with '+nv+' ('+via+')?'))return false;
+  const t=Object.assign({},s.times,{[k]:nv}),w=[],seq=['as','ss','se','ae'].filter(q=>tMin(t[q])!=null);let tot=0;
+  for(let i=0;i<seq.length-1;i++){const x=tMin(t[seq[i]]),y=tMin(t[seq[i+1]]),d=(y-x+1440)%1440;tot+=d;const A=setupLabel2(seq[i])+' '+t[seq[i]],B=setupLabel2(seq[i+1])+' '+t[seq[i+1]];
+    if(d>720)w.push(B+' looks earlier than '+A+' (more than 12 h forward).');else if(y<x)w.push(B+' is earlier on the clock than '+A+', so it would count as the NEXT DAY. Only keep it if the case really passed midnight.')}
+  if(tot>1440)w.push('The stamped times add up to more than 24 h from first to last.');
+  const src=/typed|spoken/.test(via)?'typed':(s.timeMode||'device');s.tsrc=s.tsrc||{};
+  const other=Object.keys(s.tsrc).filter(q=>q!==k&&t[q]&&s.tsrc[q]&&s.tsrc[q]!=='typed'&&src!=='typed'&&s.tsrc[q]!==src);
+  if(other.length)w.push('Mixed time sources: '+setupLabel2(other[0])+' came from the '+(s.tsrc[other[0]]==='demo'?'demo case clock':'device clock')+' but this one is from the '+(src==='demo'?'demo case clock':'device clock')+'.');
+  if(w.length&&!confirm('Check the times: '+w.join(' ')+' Keep '+L+' '+nv+' anyway?'))return false;
+  s.tsrc[k]=src;
+  return true}
+function nowStamp(){if(S.setup.timeMode==='demo')return {v:fmt(S.clock),src:'simulated demo case clock'};const d=new Date(),tz=(Intl.DateTimeFormat().resolvedOptions().timeZone||'local');return {v:String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0'),src:'device local time, '+tz}}
+function setupLabel2(k){return(SETUP_TIMES.find(t=>t[0]===k)||[k,k])[1]}
+function setupSummary(){const on=Object.keys(S.setup.checks).filter(k=>S.setup.checks[k]).map(setupLabel);return 'date '+S.setup.date+'; checked: '+on.join(', ')+'; times '+SETUP_TIMES.map(t=>t[1]+' '+(S.setup.times[t[0]]||'blank')).join(', ')}
+let __tbTimer=0;function renderTimeBar(){if(!__tbTimer)__tbTimer=setInterval(()=>{const n=document.getElementById('tbnow');if(n)n.textContent=nowStamp().v},20000);let bar=$('#timebar');if(!bar){const nav=$('#nav');if(!nav||!nav.parentNode)return;bar=document.createElement('div');bar.id='timebar';nav.parentNode.insertBefore(bar,nav.nextSibling)}
+  const s=S.setup;if(!s)return;const ns=nowStamp();
+  bar.innerHTML='<div class="tbrow">'+[['as','Anesthesia','START'],['ae','Anesthesia','STOP'],['ss','Surgery','START'],['se','Surgery','STOP']].map(t=>{const v=s.times[t[0]];return '<button class="tbb'+(v?' set':'')+'" data-tb="'+t[0]+'"><span class="tbl">'+t[1]+' '+t[2]+'</span><span class="tbv">'+(v?esc(v):'tap to stamp')+'</span></button>'}).join('')+'</div><div class="small tbn">Taps stamp the '+(s.timeMode==='demo'?'simulated demo case clock':'device clock')+' (now <span id="tbnow">'+esc(ns.v)+'</span>). Tapping a set button asks before replacing. Times stay pending until you confirm the case setup (Drugs tab) and can be edited there. Nothing detects the event.</div>';
+  bar.querySelectorAll('[data-tb]').forEach(b=>b.onclick=()=>{const k=b.dataset.tb,old=s.times[k],n2=nowStamp();
+    if(!guardTime(k,n2.v,'time bar, '+n2.src))return;
+    setupLog(setupLabel2(k)+' time '+(old||'blank')+' to '+n2.v+' (on-screen time bar button, '+n2.src+')');s.times[k]=n2.v;renderSetup();renderChart();updateBadges()})}
+function setupInit(){setupInitState();const sec=$('#s-drugs');if(sec&&!$('#setupcard')){const d=document.createElement('div');d.className='card';d.id='setupcard';d.style.margin='8px 0';sec.insertBefore(d,sec.children[1]||null)}renderSetup()}
+
+/* ---------- local-only saving of synthetic test cases ---------- */
+const SAVE_KEY='anesthesia-demo-synthetic-case-v1';
+let __autosave=false,__saveErr='';
+function storeOK(){try{const k='__t';localStorage.setItem(k,'1');localStorage.removeItem(k);return true}catch(e){__saveErr=String(e&&e.name||e);return false}}
+function saveCase(key){key=key||SAVE_KEY;try{const o={v:1,savedAt:new Date().toISOString(),clock:S.clock,seq:S.seq,uid:uid,readings:S.readings,drugs:S.drugs,rhythm:S.rhythm,setup:S.setup};localStorage.setItem(key,JSON.stringify(o));return true}catch(e){__saveErr=String(e&&e.name||e);return false}}
+function savedCaseInfo(key){try{const t=localStorage.getItem(key||SAVE_KEY);if(!t)return null;const o=JSON.parse(t);return o&&o.v===1?o:null}catch(e){return null}}
+function savedHasContent(o){return !!o&&((o.readings||[]).length||(o.drugs||[]).length||(o.rhythm||[]).length||(o.setup&&o.setup.history&&o.setup.history.length>1))}
+function restoreCase(key){const o=savedCaseInfo(key);if(!o)return false;S.readings=o.readings||[];S.drugs=o.drugs||[];S.rhythm=o.rhythm||[];S.setup=o.setup||S.setup;S.clock=o.clock;S.seq=o.seq||S.seq;uid=Math.max(uid,o.uid||0);S.lastCaptures=[];S.nibpRun=null;sim.nibpAt=S.clock;sim.nibpOn=true;return true}
+function clearSavedCase(key){try{localStorage.removeItem(key||SAVE_KEY)}catch(e){}}
+function resetCaseState(){S.readings=[];S.drugs=[];S.rhythm=[];S.lastCaptures=[];S.nibpRun=null;S.clock=START;sim.nibpAt=START-5;sim.nibpOn=true;setupInitState()}
+function renderSaveBar(){const el=$('#savebar');if(!el)return;const ok=storeOK(),raw=savedCaseInfo(),info=raw;
+  let h='<b>Saving</b> <span class="small">Synthetic test cases only. '+(ok?'Autosave keeps the case in this browser on this device only. This feature does not send it anywhere. Clear erases it.':'Saving is unavailable in this view ('+esc(__saveErr||'storage blocked')+'). Nothing is kept after closing; open the standalone file to save.')+'</span> ';
+  if(ok&&savedHasContent(info)&&!__autosave)h+='<br>A saved synthetic case from '+esc(info.savedAt.slice(0,16).replace('T',' '))+' UTC exists. <button class="b p" id="srestore">Restore it</button> <button class="b" id="sdiscard">Discard it</button>';
+  else if(ok)h+='<span class="small">Last saved '+(info?esc(info.savedAt.slice(11,19))+' UTC':'not yet')+'.</span> ';
+  h+=' <button class="b" id="sclear">Clear case and saved copy</button>';el.innerHTML=h;
+  const r=el.querySelector('#srestore');if(r)r.onclick=()=>{restoreCase();__autosave=true;renderSetup();renderReview();renderDrugs();renderRhythm();renderChart();updClock();updateBadges();renderSaveBar()};
+  const d=el.querySelector('#sdiscard');if(d)d.onclick=()=>{clearSavedCase();__autosave=true;saveCase();renderSaveBar()};
+  el.querySelector('#sclear').onclick=()=>{if(!confirm('Erase this case and its saved copy from this device?'))return;clearSavedCase();resetCaseState();renderSetup();renderReview();renderDrugs();renderRhythm();renderChart();updClock();updateBadges();if(ok){__autosave=true;saveCase()}renderSaveBar()}}
+function saveInit(){const sec=$('#s-drugs');if(sec&&!$('#savebar')){const d=document.createElement('div');d.className='card';d.id='savebar';d.style.margin='8px 0';sec.insertBefore(d,sec.firstChild)}
+  const q=new URLSearchParams(location.search);if(q.get('selftest')==='1'){__autosave=false;renderSaveBar();return}
+  const ok=storeOK();if(ok&&!savedHasContent(savedCaseInfo()))__autosave=true;renderSaveBar()}
+function autosaveNow(){if(__autosave)saveCase()}
+
+/* ---------- camera chooser (lets a mounted/external camera be picked when the browser lists it) ---------- */
+async function camPopulate(){try{const devs=(await navigator.mediaDevices.enumerateDevices()).filter(d=>d.kind==='videoinput');let sel=$('#camsel');if(!sel){sel=document.createElement('select');sel.id='camsel';sel.style.marginLeft='6px';const b=$('#camstart');b.parentNode.insertBefore(sel,b.nextSibling);
+    sel.onchange=()=>{S.camId=sel.value||null;try{S.stream&&S.stream.getTracks().forEach(t=>t.stop())}catch(e){}S.stream=null;$('#camstart').click()}}
+  const cur=S.stream&&S.stream.getVideoTracks()[0]&&S.stream.getVideoTracks()[0].getSettings().deviceId;
+  sel.innerHTML=devs.map((d,i)=>'<option value="'+esc(d.deviceId)+'"'+(d.deviceId===cur?' selected':'')+'>'+esc(d.label||('Camera '+(i+1)))+'</option>').join('');
+  S.camCount=devs.length;const n=$('#srcnote');if(n&&devs.length>1)n.textContent+=' '+devs.length+' cameras listed: pick one in the camera menu. An external camera appears only if this browser lists it.'}catch(e){}}
+
+/* ---------- wiring ---------- */
+const TABS=[['monitor','1 Monitor'],['review','2 Review vitals'],['drugs','3 Drugs'],['chart','4 Chart'],['test','Self-test']];
+function show(id){document.querySelectorAll('#s-monitor,#s-review,#s-drugs,#s-chart,#s-test').forEach(s=>s.classList.toggle('on',s.id==='s-'+id));document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('on',b.dataset.t===id));if(id==='chart')renderChart();if(id==='review')renderReview();if(id==='drugs')renderDrugs()}
+function updateBadges(){autosaveNow();const pv=S.readings.filter(s=>s.status==='pending').length,pd=S.drugs.filter(d=>d.status==='pending').length+S.rhythm.filter(d=>d.status==='pending').length+(S.setup&&S.setup.status==='pending'?1:0);
+  document.querySelectorAll('#nav button').forEach(b=>{const t=b.dataset.t;const base=TABS.find(x=>x[0]===t)[1];b.textContent=base+(t==='review'&&pv?' ('+pv+' pending)':t==='drugs'&&pd?' ('+pd+' pending)':'')})}
+function updClock(){const d=dueMark();$('#clock').textContent=fmt(S.clock)+(d!=null?'  |  15-min SpO2/CO2/RR record due for the '+fmt(d)+'-'+fmt(d+15)+' block (next capture is its record)':'')}
+function tick(mins){for(let i=0;i<mins;i++){S.clock++;if(S.cond==='nibpstuck')sim.nibpOn=false;else sim.nibpOn=true;simStep()}updClock();refreshView()}
+function refreshView(){if(S.src==='sim'){renderSimToView();$('#viewinfo').textContent='Source: simulated screen (made-up values). Condition: '+CONDS[S.cond]}else if(S.src==='img'&&S.srcImg){vctx.fillStyle='#000';vctx.fillRect(0,0,960,540);vctx.drawImage(S.srcImg,0,0,960,540)}else if(S.src==='cam'&&S.stream){vctx.drawImage($('#vid'),0,0,960,540)}}
+let autoLast=START;
+function doCapture(){refreshView();const s=capture();updClock();const txt=PARAMS.map(k=>PLABEL[k]+' '+(s.params[k].val==null?'--':s.params[k].val)).join(' | ');$('#lastread').innerHTML='Captured at '+fmt(s.capT)+': '+esc(txt)+'<br>'+(s.flags.length?s.flags.length+' flag(s). ':'')+'Go to Review to confirm, edit or reject.';
+  const ctx=vctx;ctx.save();ctx.strokeStyle='#ff0';ctx.lineWidth=1;PARAMS.forEach(k=>{const r=LAY[k];ctx.strokeRect(r.x-12,r.y-8,r.w+24,r.h+16)});ctx.restore();
+  renderReview();updateBadges();return s}
+function initUI(){setupInit();saveInit();
+  __b1();__b2();__b3();__bR();
+  $('#nav').innerHTML=TABS.map(t=>'<button data-t="'+t[0]+'">'+t[1]+'</button>').join('');$('#nav').onclick=e=>{const b=e.target.closest('button');if(b)show(b.dataset.t)};
+  $('#cond').innerHTML=Object.keys(CONDS).map(k=>'<option value="'+k+'">'+CONDS[k]+'</option>').join('');
+  sc=document.createElement('canvas');sc.width=960;sc.height=540;sctx=sc.getContext('2d',{willReadFrequently:true});vcv=$('#view');vctx=vcv.getContext('2d',{willReadFrequently:true});
+  $('#cond').onchange=e=>{S.cond=e.target.value;S.frozen=false;refreshView()};
+  $('#capture').onclick=doCapture;$('#step').onclick=()=>tick(1);$('#step5').onclick=()=>{for(let i=0;i<5;i++){tick(1);autoCheck()}};
+  let timer=null;$('#run').onclick=()=>{S.running=!S.running;$('#run').textContent=S.running?'Pause':'Run';if(S.running){timer=setInterval(()=>{tick(1);autoCheck()},1500)}else clearInterval(timer)};
+  function autoCheck(){if($('#auto').checked&&S.clock-autoLast>=5){autoLast=S.clock;doCapture()}}
+  const vid=document.createElement('video');vid.id='vid';vid.muted=true;vid.playsInline=true;vid.style.display='none';document.body.appendChild(vid);
+  $('#src').onchange=e=>{S.src=e.target.value;$('#file').style.display=S.src==='img'?'':'none';$('#camstart').style.display=S.src==='cam'?'':'none';
+    $('#srcnote').textContent=S.src==='cam'?'Experimental. Aim the camera only at the monitor screen, keep faces out of frame. The reader expects the Passport 2 style layout filling the frame; it is uncalibrated and has not been tested on a real monitor.':S.src==='img'?'Upload an image or screenshot of a monitor screen (use made-up or de-identified only). Stretched to the 16:9 frame. Not validated on real photos.':'';refreshView()};
+  $('#file').onchange=e=>{const f=e.target.files[0];if(!f)return;const im=new Image();im.onload=()=>{S.srcImg=im;refreshView()};im.src=URL.createObjectURL(f)};
+  $('#camstart').onclick=async()=>{try{S.stream=await navigator.mediaDevices.getUserMedia({video:Object.assign({width:1280,height:720},S.camId?{deviceId:{exact:S.camId}}:{})});vid.srcObject=S.stream;camPopulate();await vid.play();(function loop(){if(S.src==='cam'&&S.stream){vctx.drawImage(vid,0,0,960,540)}requestAnimationFrame(loop)})();$('#srcnote').textContent='Camera running. Frames stay in this page. Press Capture reading now.'}catch(err){$('#srcnote').textContent='Camera not available: '+err.message}};
+  $('#cpng').onclick=()=>{const a=document.createElement('a');a.download='demo-anesthesia-chart.png';a.href=$('#chartcv').toDataURL('image/png');a.click()};
+  $('#cprint').onclick=()=>{preparePrint();window.print()};
+  $('#creset').onclick=()=>{if(!confirm('Clear all demo entries?'))return;S.readings=[];S.drugs=[];S.rhythm=[];S.lastCaptures=[];S.nibpRun=null;renderReview();renderDrugs();renderRhythm();renderChart();updateBadges()};
+  $('#csample').onclick=()=>{loadSample();show('chart')};
+  // voice
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  $('#dvoice').onclick=()=>{
+    if(!SR){$('#vstat').textContent='Voice not supported in this browser. Use typing.';return}
+    if(!S.voiceOK){if(!confirm('Browser speech recognition may send audio to the browser vendor\'s cloud service. Do not speak patient identifiers. Continue?'))return;S.voiceOK=true}
+    const r=new SR();r.lang='en-US';r.interimResults=false;r.onresult=ev=>{const t=ev.results[0][0].transcript;$('#vstat').textContent='Heard: "'+t+'"';doParse(t)};r.onerror=ev=>{$('#vstat').textContent='Voice error: '+ev.error};r.onend=()=>{};r.start();$('#vstat').textContent='Listening...'};
+  $('#dtext').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();$('#dparse').click()}});
+  $('#runtest').onclick=()=>runSelfTest();
+  updClock();renderSimToView();show('monitor');updateBadges()}
+function loadSample(){
+  const keep=S.cond;S.cond='none';S.src='sim';
+  S.readings=[];S.drugs=[];S.rhythm=[];S.clock=START;sim.nibpAt=START-5;sim.nibpOn=true;S.lastCaptures=[];S.nibpRun=null;
+  const texts=[['propofol 120 mg at 9:00',0],['fentanyl 50 mcg at 9:00',0],['lidocaine 50 mg at 9:00',0],['ancef 1 g at 9:10',10],['propofol drip 30 mcg/kg/min at 9:10',10],['glycopyrrolate 0.2 mg at 9:10',10],['zofran 4 mg at 10:05',65],['fentanyl 50 mcg at 10:15',75]];
+  let ti=0;for(let m=0;m<=95;m++){if(m>0){S.clock++;simStep()}
+    while(ti<texts.length&&texts[ti][1]<=m){const d=addDrug(parseDrug(texts[ti][0],S.clock));if(d.hold.length==0){d.status='confirmed';hist(d,'SAMPLE','auto-confirmed for test (bypasses review)')}ti++}
+    if(m%5===0){renderSimToView();const s=capture();s.status='confirmed';hist(s,'SAMPLE','auto-confirmed for test (bypasses review)')}}
+  [0,15,30,45,60,77,90].forEach((m,i)=>{const r=addRhythm('SR',START+m,'sample');r.status='confirmed';hist(r,'SAMPLE','auto-confirmed for test (bypasses review)')});
+  recomputeFlags();S.cond=keep;updClock();renderReview();renderDrugs();renderRhythm();renderChart();updateBadges()}
+/* ---------- self-test ---------- */
+async function runSelfTest(){
+  const out=$('#testout');const log=s=>{out.textContent+=s+'\n'};out.textContent='';const R={};
+  const saved={clock:S.clock,cond:S.cond,frozen:S.frozen};
+  log('Reader accuracy on the simulated screen (not a real monitor). 30 random value sets per condition.');
+  log('correct = all 7 numbers right | wrong = any confident wrong number | none = refused (flagged) | partial = some right, rest refused');
+  const conds=['none','noise','blur','lowres','dim','bright','shift','glare','menu','alarm'];const N=30;R.reader={};
+  for(const cn of conds){let ok=0,wrong=0,none=0,part=0,wrongParams=0,total=0;
+    for(let i=0;i<N;i++){const v={hr:Math.round(rnd(40,160)),spo2:Math.round(rnd(85,100)),co2:Math.round(rnd(15,60)),rr:Math.round(rnd(6,28)),sys:Math.round(rnd(70,190)),dia:Math.round(rnd(35,110)),map:Math.round(rnd(45,130))};
+      sim.hr=v.hr;drawMonitor(sctx,v);S.cond=cn;applyCond(cn,vctx,sc);const res=readFrame(vcv);
+      let w=0,n=0,g=0;PARAMS.forEach(k=>{total++;if(res[k].val==null){n++;R.why=R.why||{};const kk=cn+':'+k+':'+res[k].why;R.why[kk]=(R.why[kk]||0)+1}else if(res[k].val!==v[k])w++;else g++});
+      wrongParams+=w;if(w>0)wrong++;else if(n===0)ok++;else if(g===0)none++;else part++}
+    R.reader[cn]={correct:ok,wrong,none,partial:part,wrongNumbers:wrongParams,of:N};
+    log(String(CONDS[cn]).padEnd(28)+'correct '+ok+'  partial '+part+'  none '+none+'  wrong '+wrong+'  (confident wrong numbers: '+wrongParams+'/'+total+')');
+    await new Promise(r=>setTimeout(r,0))}
+  S.cond=saved.cond;
+  log('\nRefusal reasons: '+JSON.stringify(R.why));log('\nNon-monitor image (plain gradient) through the camera path:');
+  vctx.fillStyle='#223';vctx.fillRect(0,0,960,540);const g=vctx.createLinearGradient(0,0,960,540);g.addColorStop(0,'#c63');g.addColorStop(1,'#3c9');vctx.fillStyle=g;vctx.fillRect(100,100,700,300);
+  const nm=readFrame(vcv);const inv=PARAMS.filter(k=>nm[k].val!=null);R.nonMonitorInvented=inv;log('numbers invented from non-monitor image: '+inv.length+(inv.length?' ('+inv.join(',')+')':''));
+  log('\nDrug entry parser (made-up phrases):');
+  const cases=[['fentanyl 50 mcg at 9:15','fentanyl',50,'mcg',555,0],['propofol 100 mg now','propofol',100,'mg',600,0],['zofran 4 mg 10 minutes ago','zofran',4,'mg',590,0],['glycopyrrolate point two milligrams','_hold',null,null,600,1],['lidocaine 50 at 0915','lidocaine',50,'mg',555,0],['fentanil 50 mcg at 9:15','fentanyl',50,'mcg',555,0],['fentanyl 50 mg at 9:15','fentanyl',50,'mg',555,1],['propofol drip 30 mcg/kg/min at 10','propgtt',30,'mcg/kg/min',600,0],['ancef 2 g at 9:20','ancef',2,'g',560,0],['xyzzy 5 mg','_hold',5,null,600,1],['toradol 30 mg at 2:30 pm','toradol',30,'mg',870,0],['decadron 8 mg at 3','decadron',8,'mg',900,0]];
+  let pass=0;R.parser=[];cases.forEach(c=>{const p=parseDrug(c[0],600);let ok;
+    if(c[1]==='_hold')ok=p.hold.length>0;else ok=p.drug===c[1]&&p.dose===c[2]&&(p.unit===c[3]||(c[5]&&p.hold.length>0))&&p.given===c[4]&&((p.hold.length>0)===!!c[5]);
+    if(ok)pass++;R.parser.push([c[0],ok]);log((ok?'PASS ':'FAIL ')+c[0]+'  ->  '+(p.drug||'?')+' '+p.dose+' '+(p.unit||'')+' @'+fmt(p.given)+(p.hold.length?'  HOLD: '+p.hold[0]:'')+(p.warn.length?'  warn: '+p.warn[0]:''))});
+  R.parserPass=pass+'/'+cases.length;log('parser '+R.parserPass);
+  log('\nEdit, history and print path:');
+  S.readings=[];S.drugs=[];S.rhythm=[];S.lastCaptures=[];S.nibpRun=null;S.clock=START+10;S.cond='none';sim.nibpAt=START;
+  const d=addDrug(parseDrug('fentanyl 50 mcg at 9:05',S.clock));S.drugs[0].status='confirmed';
+  // edit drug via same logic as UI
+  d.dose=100;d.edited=true;d.status='pending';hist(d,'you','edited: dose 50 to 100 (test). Needs confirm again.');
+  const before=buildChartModel().meds.length;d.status='confirmed';hist(d,'you','confirmed');
+  renderSimToView();const s=capture();s.status='confirmed';
+  const origHR=s.params.hr.read.val;s.params.hr.val=77;s.params.hr.edited=true;s.status='pending';hist(s,'you','edited: HR '+origHR+' to 77 (artifact). Needs confirm again.');
+  const pend=buildChartModel().slots[slotOf(s.capT)];s.status='confirmed';hist(s,'you','confirmed');const aft=buildChartModel().slots[slotOf(s.capT)];
+  R.edit={pendingNotCharted:before===0&&!pend,confirmedCharted:!!aft&&aft.hr.v===77&&aft.hr.ed,drugOrigKept:d.orig.dose===50&&d.dose===100,vitalOrigKept:s.params.hr.read.val===origHR};
+  log(JSON.stringify(R.edit));
+  log('\nUI click-through (real buttons and inputs):');
+  S.readings=[];S.drugs=[];S.rhythm=[];S.lastCaptures=[];S.nibpRun=null;S.clock=START+5;S.cond='none';S.src='sim';sim.nibpAt=START;
+  const U={};const click=(root,a)=>root.querySelector('[data-a='+a+']').click();
+  doCapture();let card=$('#reviewlist .card');click(card,'edit');card=$('#reviewlist .card');const hrIn=card.querySelector('input[data-k=hr]');const hrRead=S.readings[0].params.hr.read.val;hrIn.value='77';card.querySelector('[data-note]').value='made-up artifact';click(card,'save');
+  U.vitalEditPending=S.readings[0].status==='pending'&&S.readings[0].params.hr.edited&&S.readings[0].params.hr.val===77&&S.readings[0].params.hr.read.val===hrRead;
+  U.notChartedWhilePending=!buildChartModel().slots[slotOf(S.clock)];
+  card=$('#reviewlist .card');click(card,'confirm');U.chartedAfterConfirm=!!buildChartModel().slots[slotOf(S.clock)]&&buildChartModel().slots[slotOf(S.clock)].hr.v===77;
+  U.vitalHistory=S.readings[0].history.map(h=>h.who+': '+h.what);
+  $('#dtext').value='fentanyl 50 mcg at 9:05';$('#dparse').click();let dc=$('#druglist .card');click(dc,'confirm');
+  dc=$('#druglist .card');click(dc,'edit');dc=$('#druglist .card');dc.querySelector('[data-f=dose]').value='100';dc.querySelector('[data-f=given]').value='09:10';dc.querySelector('[data-note]').value='dose corrected (made-up)';click(dc,'save');
+  const dd=S.drugs[0];U.drugEditPending=dd.status==='pending'&&dd.dose===100&&dd.orig.dose===50&&dd.given===550&&dd.orig.given===545;
+  U.drugNotChartedWhilePending=buildChartModel().meds.length===0;
+  dc=$('#druglist .card');click(dc,'confirm');U.drugChartedAfter=buildChartModel().meds.length===1&&buildChartModel().meds[0].dose===100;
+  $('#dtext').value='fentanyl 50 mg at 9:20';$('#dparse').click();dc=$('#druglist .card');U.holdBlocksConfirm=dc.querySelector('[data-a=confirm]').disabled===true;
+  click(dc,'edit');dc=$('#druglist .card');dc.querySelector('[data-f=dose]').value='50';click(dc,'save');dc=$('#druglist .card');
+  U.afterFixCanConfirm=dc.querySelector('[data-a=confirm]').disabled===false;
+  U.drugHistory=S.drugs[0].history.map(h=>h.who+': '+h.what);
+  R.ui=U;log(JSON.stringify(U,null,1));
+  S.clock=saved.clock;S.cond=saved.cond;
+  loadSample();
+  // edits on sample
+  const e1=S.drugs.find(x=>x.drug==='fentanyl'&&x.given>=615);if(e1){e1.dose=25;e1.edited=true;e1.status='pending';hist(e1,'you','edited: dose 50 to 25 (made-up correction). Needs confirm again.');e1.status='confirmed';hist(e1,'you','confirmed')}
+  const e2=S.readings[6];if(e2){e2.params.sys.val=118;e2.params.sys.edited=true;e2.status='pending';hist(e2,'you','edited: NIBP sys corrected by clinician (made-up). Needs confirm again.')}
+  const e3=S.readings[9];if(e3){e3.status='rejected';hist(e3,'you','rejected: clinician judged artifact (made-up)')}
+  // rhythm UI click-through (real inputs/buttons)
+  {const RU={};show('drugs');$('#rtext').value='SR';$('#rtime').value='09:07';$('#radd').click();
+   let r=S.rhythm[S.rhythm.length-1];RU.addedPending=r.status==='pending'&&r.given===START+7&&r.givenSrc==='typed by you';
+   $('#rhythmlist [data-a=confirm]').click();RU.confirmed=S.rhythm.find(x=>x.id===r.id).status==='confirmed';
+   let M1=buildChartModel();RU.plottedInBlockWithActualTime=!!M1.rs[0]&&M1.rs[0].given===START+7;
+   $('#rhythmlist [data-a=edit]').click();const card=$('#rhythmlist .card');card.querySelector('[data-f=text]').value='AF';card.querySelector('[data-f=given]').value='09:15';$('#rhythmlist [data-a=save]').click();
+   r=S.rhythm.find(x=>x.id===r.id);RU.editPending=r.status==='pending'&&r.text==='AF'&&r.orig.text==='SR'&&r.orig.given===START+7&&r.edited;
+   RU.notChartedPending=!Object.values(buildChartModel().rs).some(x=>x.id===r.id);
+   $('#rhythmlist [data-a=confirm]').click();RU.chartedAfterConfirm=Object.values(buildChartModel().rs).some(x=>x.id===r.id);
+   RU.history=r.history.map(h=>h.who+': '+h.what);
+   $('#rhythmlist [data-a=reject]').click();RU.rejectedNotCharted=!Object.values(buildChartModel().rs).some(x=>x.id===r.id);
+   $('#rhythmlist [data-a=restore]').click();$('#rhythmlist [data-a=confirm]').click();
+   RU.noInferenceFromHR=S.rhythm.every(x=>x.givenSrc!==undefined)&&typeof addRhythm==='function';
+   $('#rtime').value='09:30';const before=S.rhythm.length;RU.defaultPrefilled=$('#rtext').value==='SR';$('#radd').click();const dr=S.rhythm[S.rhythm.length-1];RU.defaultAddedPending=S.rhythm.length===before+1&&dr.text==='SR'&&dr.status==='pending'&&dr.history[0].what.includes('default SR');
+   log('\nRhythm entry UI click-through:\n'+JSON.stringify(RU,null,1));R.rhythmUI=RU}
+  recomputeFlags();renderRhythm();renderChart();
+  R.chartPng=$('#chartcv').toDataURL('image/png');
+  const pages=renderLogPages();R.logPng=pages[0].toDataURL('image/png');R.logPages=pages.length;
+  log('chart and change-log pages rendered ('+pages.length+' log page(s))');
+  log('\nDone.');window.__R=R;
+  const holder=document.createElement('div');holder.id='result';holder.style.display='none';holder.textContent=JSON.stringify(Object.assign({},R,{chartPng:undefined,logPng:undefined}));document.body.appendChild(holder);
+  const h2=document.createElement('div');h2.id='chartpng';h2.style.display='none';h2.textContent=R.chartPng;document.body.appendChild(h2);const h3=document.createElement('div');h3.id='logpng';h3.style.display='none';h3.textContent=R.logPng;document.body.appendChild(h3);
+  const h4=document.createElement('div');h4.id='viewpng';h4.style.display='none';renderSimToView();h4.textContent=$('#view').toDataURL('image/png');document.body.appendChild(h4);
+  const h5=document.createElement('div');h5.id='done';h5.textContent='DONE';document.body.appendChild(h5)}
+function start(){if(__started)return;__started=true;initUI();const q=new URLSearchParams(location.search);if(q.get('sample')==='1')loadSample();if(q.get('cond')){S.cond=q.get('cond');$('#cond').value=S.cond;refreshView()}if(q.get('cap')==='1')doCapture();if(q.get('tab'))show(q.get('tab'));if(location.search.includes('selftest=1'))setTimeout(runSelfTest,50)}
+
+/* 15-min record for SpO2/CO2/RR: the first capture at or after a scheduled mark is that mark's record. No later reading is substituted; a mark with no capture stays a gap. */
+function dueMark(){const ph=(typeof CH!=='undefined'?CH.phase:0)*5;const j=Math.floor((S.clock-START-ph)/15);if(j<0)return null;const mt=START+ph+15*j;return S.readings.some(s=>s.recFor===mt)?null:mt}
+
+try{start()}catch(e){var p=document.createElement("pre");p.style.color="#a00";p.textContent=String(e&&e.stack||e);document.getElementById("demo-root").prepend(p)}</script></body></html>
