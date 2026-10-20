@@ -1,4 +1,4 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="robots" content="noindex,nofollow"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Anesthesia charting demo (synthetic data only) rev 18</title><style>html,body{margin:0;background:#fff}#demo-root{--ink:#251f21;--ink2:#585254;--rule:#d9d6d7;--teal:#2f7f6d;--red:#c4202c;--sand:#f4efec}
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="robots" content="noindex,nofollow"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Anesthesia charting demo (synthetic data only) rev 19</title><style>html,body{margin:0;background:#fff}#demo-root{--ink:#251f21;--ink2:#585254;--rule:#d9d6d7;--teal:#2f7f6d;--red:#c4202c;--sand:#f4efec}
 #demo-root *{box-sizing:border-box}
 #demo-root{margin:0;font:15px/1.4 system-ui,Arial,sans-serif;color:var(--ink);background:#fff}
 #demo-root #banner{position:static;top:0;z-index:5;background:#fff4d6;border-bottom:2px solid #d9b44a;padding:6px 12px;font-weight:600;font-size:13px}
@@ -59,7 +59,7 @@
 #demo-root #s-monitor .note{display:none}
 #demo-root #s-monitor .row{flex-wrap:nowrap;gap:10px;align-items:flex-start}
 #demo-root #s-monitor .row>div:first-child{flex:0 1 auto;min-width:0}
-#demo-root #s-monitor #view{width:auto!important;height:auto;max-width:100%;max-height:calc(100vh - 165px);display:block}
+#demo-root #s-monitor #view{width:min(100%,calc((100vh - 165px)*16/9))!important;height:auto!important;aspect-ratio:16/9;max-width:100%;display:block;object-fit:contain;background:#000}
 #demo-root #s-monitor .row>div:last-child{flex:1 1 220px;min-width:0!important;display:flex;flex-direction:column;max-height:calc(100vh - 165px);overflow-y:auto}#demo-root #s-monitor select{max-width:100%}#demo-root header h1{display:none}#demo-root header summary{padding:2px 0}
 #demo-root #s-monitor .row>div:last-child .card{margin:0 0 6px;padding:6px 8px}
 #demo-root #s-monitor .row>div:last-child .card:last-child{order:-1}
@@ -86,7 +86,7 @@ body.camonly #demo-root #condcard,body.camonly #demo-root .srclbl{display:none!i
 <div id="pairpanel" style="display:none;padding:8px 12px;border-bottom:2px solid #999;background:#f3f6ff" class="small"></div>
 <div id="banner">DEMO with synthetic data only. Not a medical record. Not for clinical use. Nothing here is validated on a real monitor or approved for patients.</div>
 <header><h1>Anesthesia charting assistant (prototype)</h1>
-<details id="aboutd" open><summary class="small">About and privacy &middot; <b>rev 18</b></summary><div class="small">Runs in this page. Nothing is uploaded by this demo. The Share / export button only runs when you tap it, and it hands the text to your phone's share sheet or clipboard. With "Auto-send to dev" ticked (it is ticked by default in this test build), each Capture sends the reading values and the camera frame, plus camera start errors, to a private test channel on the public ntfy.sh service, where the developer reads them; the channel name is unlisted but not secret, and ntfy.sh keeps messages about 12 hours. Untick it to stop sending. If you pair two phones, the camera phone sends only the reading numbers and a time (no photo) to a private room channel on ntfy.sh, which the other phone reads; enter no patient identifiers anywhere. Never point the camera at anything with patient information. If the phone screen locks the page pauses (the demo clock and camera stop); the Keep screen on button asks the browser to prevent that where it can. Stamps use the real device clock at the moment you tap, and saved case entries are kept on this device. Synthetic case entries are autosaved in this browser on this device only (Clear erases them). If you use voice, your browser may send audio to its vendor's speech service, so never speak patient information.</div></details></header>
+<details id="aboutd" open><summary class="small">About and privacy &middot; <b>rev 19</b></summary><div class="small">Runs in this page. Nothing is uploaded by this demo. The Share / export button only runs when you tap it, and it hands the text to your phone's share sheet or clipboard. With "Auto-send to dev" ticked (it is ticked by default in this test build), each Capture sends the reading values and the camera frame, plus camera start errors, to a private test channel on the public ntfy.sh service, where the developer reads them; the channel name is unlisted but not secret, and ntfy.sh keeps messages about 12 hours. Untick it to stop sending. If you pair two phones, the camera phone sends only the reading numbers and a time (no photo) to a private room channel on ntfy.sh, which the other phone reads; enter no patient identifiers anywhere. Never point the camera at anything with patient information. If the phone screen locks the page pauses (the demo clock and camera stop); the Keep screen on button asks the browser to prevent that where it can. Stamps use the real device clock at the moment you tap, and saved case entries are kept on this device. Synthetic case entries are autosaved in this browser on this device only (Clear erases them). If you use voice, your browser may send audio to its vendor's speech service, so never speak patient information.</div></details></header>
 <nav id="nav"></nav>
 
 <section id="s-monitor">
@@ -767,7 +767,7 @@ let autoLast=START;
 const DEFSRC=(typeof location!=='undefined'&&/[?&]sim=1/.test(location.search))?'sim':'cam';
 const DEV_TOPIC='hal-anes-7622c67c9eefa26a26cb1c4b';
 function devOn(){const c=document.getElementById('ccsend');return !!(c&&c.checked)}
-function devSend(kind,obj,frame){try{if(!devOn())return;const body=JSON.stringify(Object.assign({kind:kind,rev:'18',at:new Date().toISOString(),ua:navigator.userAgent.slice(0,120)},obj));
+function devSend(kind,obj,frame){try{if(!devOn())return;const body=JSON.stringify(Object.assign({kind:kind,rev:'19',at:new Date().toISOString(),ua:navigator.userAgent.slice(0,120)},obj));
   fetch('https://ntfy.sh/'+DEV_TOPIC,{method:'POST',body:body,keepalive:true}).catch(()=>{});
   if(frame){frame.toBlob(b=>{if(b)fetch('https://ntfy.sh/'+DEV_TOPIC,{method:'PUT',body:b,headers:{Filename:'capture-'+Date.now()+'.jpg'}}).catch(()=>{})},'image/jpeg',0.6)}}catch(e){}}
 function drawCam(){const v=document.getElementById('vid');const w=v.videoWidth,h=v.videoHeight;if(!w||!h)return;const sc=Math.min(960/w,540/h),dw=w*sc,dh=h*sc;vctx.fillStyle='#000';vctx.fillRect(0,0,960,540);vctx.drawImage(v,(960-dw)/2,(540-dh)/2,dw,dh)}
