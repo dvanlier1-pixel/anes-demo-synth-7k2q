@@ -1,4 +1,4 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="robots" content="noindex,nofollow"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Anesthesia charting demo (synthetic data only) rev 19</title><style>html,body{margin:0;background:#fff}#demo-root{--ink:#251f21;--ink2:#585254;--rule:#d9d6d7;--teal:#2f7f6d;--red:#c4202c;--sand:#f4efec}
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="robots" content="noindex,nofollow"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Anesthesia charting demo (synthetic data only) rev 20</title><style>html,body{margin:0;background:#fff}#demo-root{--ink:#251f21;--ink2:#585254;--rule:#d9d6d7;--teal:#2f7f6d;--red:#c4202c;--sand:#f4efec}
 #demo-root *{box-sizing:border-box}
 #demo-root{margin:0;font:15px/1.4 system-ui,Arial,sans-serif;color:var(--ink);background:#fff}
 #demo-root #banner{position:static;top:0;z-index:5;background:#fff4d6;border-bottom:2px solid #d9b44a;padding:6px 12px;font-weight:600;font-size:13px}
@@ -86,7 +86,7 @@ body.camonly #demo-root #condcard,body.camonly #demo-root .srclbl{display:none!i
 <div id="pairpanel" style="display:none;padding:8px 12px;border-bottom:2px solid #999;background:#f3f6ff" class="small"></div>
 <div id="banner">DEMO with synthetic data only. Not a medical record. Not for clinical use. Nothing here is validated on a real monitor or approved for patients.</div>
 <header><h1>Anesthesia charting assistant (prototype)</h1>
-<details id="aboutd" open><summary class="small">About and privacy &middot; <b>rev 19</b></summary><div class="small">Runs in this page. Nothing is uploaded by this demo. The Share / export button only runs when you tap it, and it hands the text to your phone's share sheet or clipboard. With "Auto-send to dev" ticked (it is ticked by default in this test build), each Capture sends the reading values and the camera frame, plus camera start errors, to a private test channel on the public ntfy.sh service, where the developer reads them; the channel name is unlisted but not secret, and ntfy.sh keeps messages about 12 hours. Untick it to stop sending. If you pair two phones, the camera phone sends only the reading numbers and a time (no photo) to a private room channel on ntfy.sh, which the other phone reads; enter no patient identifiers anywhere. Never point the camera at anything with patient information. If the phone screen locks the page pauses (the demo clock and camera stop); the Keep screen on button asks the browser to prevent that where it can. Stamps use the real device clock at the moment you tap, and saved case entries are kept on this device. Synthetic case entries are autosaved in this browser on this device only (Clear erases them). If you use voice, your browser may send audio to its vendor's speech service, so never speak patient information.</div></details></header>
+<details id="aboutd" open><summary class="small">About and privacy &middot; <b>rev 20</b></summary><div class="small">Runs in this page. Nothing is uploaded by this demo. The Share / export button only runs when you tap it, and it hands the text to your phone's share sheet or clipboard. With "Auto-send to dev" ticked (it is ticked by default in this test build), each Capture sends the reading values and the camera frame, plus camera start errors, to a private test channel on the public ntfy.sh service, where the developer reads them; the channel name is unlisted but not secret, and ntfy.sh keeps messages about 12 hours. Untick it to stop sending. If you pair two phones, the camera phone sends only the reading numbers and a time (no photo) to a private room channel on ntfy.sh, which the other phone reads; enter no patient identifiers anywhere. Never point the camera at anything with patient information. If the phone screen locks the page pauses (the demo clock and camera stop); the Keep screen on button asks the browser to prevent that where it can. Stamps use the real device clock at the moment you tap, and saved case entries are kept on this device. Synthetic case entries are autosaved in this browser on this device only (Clear erases them). If you use voice, your browser may send audio to its vendor's speech service, so never speak patient information.</div></details></header>
 <nav id="nav"></nav>
 
 <section id="s-monitor">
@@ -767,7 +767,7 @@ let autoLast=START;
 const DEFSRC=(typeof location!=='undefined'&&/[?&]sim=1/.test(location.search))?'sim':'cam';
 const DEV_TOPIC='hal-anes-7622c67c9eefa26a26cb1c4b';
 function devOn(){const c=document.getElementById('ccsend');return !!(c&&c.checked)}
-function devSend(kind,obj,frame){try{if(!devOn())return;const body=JSON.stringify(Object.assign({kind:kind,rev:'19',at:new Date().toISOString(),ua:navigator.userAgent.slice(0,120)},obj));
+function devSend(kind,obj,frame){try{if(!devOn())return;const body=JSON.stringify(Object.assign({kind:kind,rev:'20',at:new Date().toISOString(),ua:navigator.userAgent.slice(0,120)},obj));
   fetch('https://ntfy.sh/'+DEV_TOPIC,{method:'POST',body:body,keepalive:true}).catch(()=>{});
   if(frame){frame.toBlob(b=>{if(b)fetch('https://ntfy.sh/'+DEV_TOPIC,{method:'PUT',body:b,headers:{Filename:'capture-'+Date.now()+'.jpg'}}).catch(()=>{})},'image/jpeg',0.6)}}catch(e){}}
 function drawCam(){const v=document.getElementById('vid');const w=v.videoWidth,h=v.videoHeight;if(!w||!h)return;const sc=Math.min(960/w,540/h),dw=w*sc,dh=h*sc;vctx.fillStyle='#000';vctx.fillRect(0,0,960,540);vctx.drawImage(v,(960-dw)/2,(540-dh)/2,dw,dh)}
@@ -961,9 +961,9 @@ function camGroups(F,cands){ // cands: glyph comps of one color class
       if(Math.abs((l.y0+l.y1)/2-(g.y0+g.y1)/2)<0.3*hm&&Math.abs(l.h-g.h)<0.25*hm&&gap>=-2&&gap<0.9*hm){grp.push(g);placed=true;break}}
     if(!placed)groups.push([g])}
   return groups.map(grp=>({glyphs:grp,h:grp.reduce((s,g)=>s+g.h,0)/grp.length,cx:(grp[0].x0+grp[grp.length-1].x1)/2,cy:grp.reduce((s,g)=>s+(g.y0+g.y1)/2,0)/grp.length,x0:grp[0].x0,x1:grp[grp.length-1].x1}))}
-function camReadGroup(F,grp,maxd){
+function camReadGroup(F,grp,maxd,dm){const DM=dm||CAMREAD.dMax;
   if(grp.glyphs.length>maxd)return {why:'too many digits'};let s='',mc=1;
-  for(const g of grp.glyphs){const r=camGlyph(F,g);const lim=(r.digit===1&&g.w<0.65*g.h)?0.42:CAMREAD.dMax;if(r.d1>lim||r.d2-r.d1<CAMREAD.margin)return {why:'unclear digit'};s+=r.digit;mc=Math.min(mc,Math.max(0,1-r.d1/lim))}
+  for(const g of grp.glyphs){const r=camGlyph(F,g);const lim=(r.digit===1&&g.w<0.65*g.h)?Math.max(0.42,DM):DM;if(r.d1>lim||r.d2-r.d1<CAMREAD.margin)return {why:'unclear digit'};s+=r.digit;mc=Math.min(mc,Math.max(0,1-r.d1/lim))}
   return {val:parseInt(s,10),conf:+mc.toFixed(2)}}
 function readFrameCamOnce(cv){
   const res={};PARAMS.forEach(k=>res[k]={key:k,val:null,conf:0,status:'none',why:'not found'});
@@ -978,8 +978,9 @@ function readFrameCamOnce(cv){
     for(const a of gGC)for(const b of gGC){if(a===b||a.cy>=b.cy)continue;const hm=Math.max(a.h,b.h);
       if(Math.abs(a.h-b.h)<0.2*hm&&Math.abs(a.cx-b.cx)<2*hm&&b.cy-a.cy>0.9*hm&&b.cy-a.cy<4*hm){const ra=camReadGroup(F,a,3),rb=camReadGroup(F,b,3);if(ra.val!=null&&rb.val!=null&&(!best||hm>best.hm))best={ra,rb,hm}}}
     if(best){refH=best.hm;set('hr',best.ra);set('spo2',best.rb)}else{res.hr.why=res.spo2.why='heart rate and SpO2 not clearly identified'}}
-  if(gO.length){let top=null,rt=null;{const g=gO[0];const r=camReadGroup(F,g,3);if(r.val!=null){top=g;rt=r}}
+  if(gO.length){let top=null,rt=null;{const g=gO[0];const r=camReadGroup(F,g,3,0.40);if(r.val!=null){top=g;rt=r}}
     if(top){const bigO=F.comps.filter(c=>c.k===3&&c.h>=CAMREAD.minH&&c.h<=CAMREAD.maxH&&c.n>=20&&c.w<=1.1*c.h&&c.w>=0.3*c.h&&c.n/(c.w*c.h)>=0.3&&c.n/(c.w*c.h)<=0.85&&camRingDark(F,c)<=85).reduce((m,c)=>Math.max(m,c.h),0);
+      if(rt&&rt.val<10){rt=null;res.co2.why='single-digit CO2 not trusted (may be the small Insp number)'}
       if(top.h<0.75*bigO||(refH&&top.h<0.7*refH)){rt=null;res.co2.why='CO2 digits not clear (a larger orange number was not readable)'}
       if(rt)set('co2',rt);const small=gO.filter(g=>g!==top&&g.h<=0.8*top.h&&g.h>=0.25*top.h);
       if(small.length>=2){const rr=small.slice().sort((a,b)=>b.cx-a.cx)[0];set('rr',camReadGroup(F,rr,2))}else res.rr.why='respiratory rate not clearly identified'}
