@@ -1,4 +1,4 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="robots" content="noindex,nofollow"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Anesthesia charting demo (synthetic data only) rev 3</title><style>html,body{margin:0;background:#fff}#demo-root{--ink:#251f21;--ink2:#585254;--rule:#d9d6d7;--teal:#2f7f6d;--red:#c4202c;--sand:#f4efec}
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="robots" content="noindex,nofollow"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Anesthesia charting demo (synthetic data only) rev 7</title><style>html,body{margin:0;background:#fff}#demo-root{--ink:#251f21;--ink2:#585254;--rule:#d9d6d7;--teal:#2f7f6d;--red:#c4202c;--sand:#f4efec}
 #demo-root *{box-sizing:border-box}
 #demo-root{margin:0;font:15px/1.4 system-ui,Arial,sans-serif;color:var(--ink);background:#fff}
 #demo-root #banner{position:static;top:0;z-index:5;background:#fff4d6;border-bottom:2px solid #d9b44a;padding:6px 12px;font-weight:600;font-size:13px}
@@ -41,10 +41,35 @@
 #demo-root .tbn{margin-top:6px}
 
 @media print{body *{visibility:hidden}#demo-root #printarea,#demo-root #printarea *{visibility:visible}#demo-root #printarea{display:block;position:absolute;left:0;top:0}#demo-root #printarea canvas{width:8.5in;height:11in;border:0;display:block}@page{size:letter;margin:0}}
+
+/* Landscape phones (short and wide): monitor view is wide with controls beside it. No orientation lock anywhere. */
+@media (orientation:landscape) and (max-height:600px){
+#demo-root{font-size:14px}
+#demo-root #banner{font-size:11px;padding:3px 10px}
+#demo-root header{padding:4px 10px 0}
+#demo-root h1{font-size:16px;margin:2px 0}
+#demo-root nav{padding:4px 10px}
+#demo-root nav button{padding:5px 10px}
+#demo-root section{padding:6px 10px}
+#demo-root #timebar{padding:4px 10px}
+#demo-root .tbrow{grid-template-columns:repeat(4,1fr);gap:6px}
+#demo-root #timebar{display:flex;gap:6px;align-items:stretch}#demo-root .tbrow{flex:1 1 auto;min-width:0}#demo-root .tbn{margin:0;flex:0 0 auto;display:flex;align-items:stretch}#demo-root .tbn.small,#demo-root .tbn .small{display:none}#demo-root .tbn button.b{min-height:46px;max-width:104px;font-size:12px;padding:2px 6px}#demo-root .tbb{min-height:46px;flex-direction:column;gap:0;border-radius:10px;padding:2px 4px}
+#demo-root .tbb .tbl{font-size:12px}
+#demo-root .tbb .tbv{font-size:16px}
+#demo-root #s-monitor .note{display:none}
+#demo-root #s-monitor .row{flex-wrap:nowrap;gap:10px;align-items:flex-start}
+#demo-root #s-monitor .row>div:first-child{flex:0 1 auto;min-width:0}
+#demo-root #s-monitor #view{width:auto!important;height:auto;max-width:100%;max-height:calc(100vh - 165px);display:block}
+#demo-root #s-monitor .row>div:last-child{flex:1 1 220px;min-width:0!important;display:flex;flex-direction:column;max-height:calc(100vh - 165px);overflow-y:auto}#demo-root #s-monitor select{max-width:100%}#demo-root header h1{display:none}#demo-root header summary{padding:2px 0}
+#demo-root #s-monitor .row>div:last-child .card{margin:0 0 6px;padding:6px 8px}
+#demo-root #s-monitor .row>div:last-child .card:last-child{order:-1}
+#demo-root #s-monitor button.b{min-height:40px}
+#demo-root #s-monitor #capture{width:100%;min-height:48px;font-weight:700}
+}
 </style></head><body><div id="demo-root"></div><script>const markup = `
 <div id="banner">DEMO with synthetic data only. Not a medical record. Not for clinical use. Nothing here is validated on a real monitor or approved for patients.</div>
 <header><h1>Anesthesia charting assistant (prototype)</h1>
-<div class="small">Runs in this page. Nothing is uploaded by this demo. The Share / export button only runs when you tap it, and it hands the text to your phone's share sheet or clipboard. Camera frames stay in memory. If the phone screen locks the page pauses (the demo clock and camera stop); the Keep screen on button asks the browser to prevent that where it can. Stamps use the real device clock at the moment you tap, and saved case entries are kept on this device. Synthetic case entries are autosaved in this browser on this device only (Clear erases them). If you use voice, your browser may send audio to its vendor's speech service, so never speak patient information.</div></header>
+<details id="aboutd" open><summary class="small">About and privacy</summary><div class="small">Runs in this page. Nothing is uploaded by this demo. The Share / export button only runs when you tap it, and it hands the text to your phone's share sheet or clipboard. Camera frames stay in memory. If the phone screen locks the page pauses (the demo clock and camera stop); the Keep screen on button asks the browser to prevent that where it can. Stamps use the real device clock at the moment you tap, and saved case entries are kept on this device. Synthetic case entries are autosaved in this browser on this device only (Clear erases them). If you use voice, your browser may send audio to its vendor's speech service, so never speak patient information.</div></details></header>
 <nav id="nav"></nav>
 
 <section id="s-monitor">
@@ -832,7 +857,7 @@ async function runSelfTest(){
   const h2=document.createElement('div');h2.id='chartpng';h2.style.display='none';h2.textContent=R.chartPng;document.body.appendChild(h2);const h3=document.createElement('div');h3.id='logpng';h3.style.display='none';h3.textContent=R.logPng;document.body.appendChild(h3);
   const h4=document.createElement('div');h4.id='viewpng';h4.style.display='none';renderSimToView();h4.textContent=$('#view').toDataURL('image/png');document.body.appendChild(h4);
   const h5=document.createElement('div');h5.id='done';h5.textContent='DONE';document.body.appendChild(h5)}
-function start(){if(__started)return;__started=true;initUI();wlInit();const q=new URLSearchParams(location.search);if(q.get('sample')==='1')loadSample();if(q.get('cond')){S.cond=q.get('cond');$('#cond').value=S.cond;refreshView()}if(q.get('cap')==='1')doCapture();if(q.get('tab'))show(q.get('tab'));if(location.search.includes('selftest=1'))setTimeout(runSelfTest,50)}
+function start(){if(__started)return;__started=true;initUI();try{const d=document.getElementById('aboutd');if(d&&window.matchMedia('(orientation:landscape) and (max-height:600px)').matches)d.removeAttribute('open')}catch(e){}wlInit();const q=new URLSearchParams(location.search);if(q.get('sample')==='1')loadSample();if(q.get('cond')){S.cond=q.get('cond');$('#cond').value=S.cond;refreshView()}if(q.get('cap')==='1')doCapture();if(q.get('tab'))show(q.get('tab'));if(location.search.includes('selftest=1'))setTimeout(runSelfTest,50)}
 
 /* 15-min record for SpO2/CO2/RR: the first capture at or after a scheduled mark is that mark's record. No later reading is substituted; a mark with no capture stays a gap. */
 function dueMark(){const ph=(typeof CH!=='undefined'?CH.phase:0)*5;const j=Math.floor((S.clock-START-ph)/15);if(j<0)return null;const mt=START+ph+15*j;return S.readings.some(s=>s.recFor===mt)?null:mt}
