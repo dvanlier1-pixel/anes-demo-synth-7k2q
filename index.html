@@ -1,4 +1,4 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="robots" content="noindex,nofollow"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Anesthesia charting demo (synthetic data only) rev 15</title><style>html,body{margin:0;background:#fff}#demo-root{--ink:#251f21;--ink2:#585254;--rule:#d9d6d7;--teal:#2f7f6d;--red:#c4202c;--sand:#f4efec}
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="robots" content="noindex,nofollow"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Anesthesia charting demo (synthetic data only) rev 16</title><style>html,body{margin:0;background:#fff}#demo-root{--ink:#251f21;--ink2:#585254;--rule:#d9d6d7;--teal:#2f7f6d;--red:#c4202c;--sand:#f4efec}
 #demo-root *{box-sizing:border-box}
 #demo-root{margin:0;font:15px/1.4 system-ui,Arial,sans-serif;color:var(--ink);background:#fff}
 #demo-root #banner{position:static;top:0;z-index:5;background:#fff4d6;border-bottom:2px solid #d9b44a;padding:6px 12px;font-weight:600;font-size:13px}
@@ -85,7 +85,7 @@ body.camonly #demo-root #condcard,body.camonly #demo-root .srclbl{display:none!i
 <div id="camctl"><button class="cc go" id="ccstart">&#9654; Start camera + keep screen on</button><button class="cc stop" id="ccstop">&#9632; Stop</button><label class="ccsend"><input type="checkbox" id="ccsend" checked> Auto-send to dev</label><label class="ccsend"><input type="checkbox" id="ccauto" checked> Auto-capture every 5 min</label><span class="ccs small" id="ccnext"></span><span class="ccs small" id="ccstat"></span></div>
 <div id="banner">DEMO with synthetic data only. Not a medical record. Not for clinical use. Nothing here is validated on a real monitor or approved for patients.</div>
 <header><h1>Anesthesia charting assistant (prototype)</h1>
-<details id="aboutd" open><summary class="small">About and privacy &middot; <b>rev 15</b></summary><div class="small">Runs in this page. Nothing is uploaded by this demo. The Share / export button only runs when you tap it, and it hands the text to your phone's share sheet or clipboard. With "Auto-send to dev" ticked (it is ticked by default in this test build), each Capture sends the reading values and the camera frame, plus camera start errors, to a private test channel on the public ntfy.sh service, where the developer reads them; the channel name is unlisted but not secret, and ntfy.sh keeps messages about 12 hours. Untick it to stop sending. Never point the camera at anything with patient information. If the phone screen locks the page pauses (the demo clock and camera stop); the Keep screen on button asks the browser to prevent that where it can. Stamps use the real device clock at the moment you tap, and saved case entries are kept on this device. Synthetic case entries are autosaved in this browser on this device only (Clear erases them). If you use voice, your browser may send audio to its vendor's speech service, so never speak patient information.</div></details></header>
+<details id="aboutd" open><summary class="small">About and privacy &middot; <b>rev 16</b></summary><div class="small">Runs in this page. Nothing is uploaded by this demo. The Share / export button only runs when you tap it, and it hands the text to your phone's share sheet or clipboard. With "Auto-send to dev" ticked (it is ticked by default in this test build), each Capture sends the reading values and the camera frame, plus camera start errors, to a private test channel on the public ntfy.sh service, where the developer reads them; the channel name is unlisted but not secret, and ntfy.sh keeps messages about 12 hours. Untick it to stop sending. Never point the camera at anything with patient information. If the phone screen locks the page pauses (the demo clock and camera stop); the Keep screen on button asks the browser to prevent that where it can. Stamps use the real device clock at the moment you tap, and saved case entries are kept on this device. Synthetic case entries are autosaved in this browser on this device only (Clear erases them). If you use voice, your browser may send audio to its vendor's speech service, so never speak patient information.</div></details></header>
 <nav id="nav"></nav>
 
 <section id="s-monitor">
@@ -973,12 +973,14 @@ function readFrameCamOnce(cv){
   const rng=(k,v,lo,hi)=>{if(res[k].val!=null&&(res[k].val<lo||res[k].val>hi)){res[k].val=null;res[k].conf=0;res[k].status='none';res[k].why='value outside plausible range'}};
   const gGC=camGroups(F,byClass[1].concat(byClass[2])).filter(g=>g.glyphs.length<=3).sort((a,b)=>b.h-a.h),gO=camGroups(F,byClass[3]).filter(g=>g.glyphs.length<=3).sort((a,b)=>b.h-a.h),gW=camGroups(F,byClass[4]);
   // HR is the upper, SpO2 the lower of two big green/cyan numerals of equal size (needs both, so the order is certain)
-  {let best=null;
+  let refH=0;{let best=null;
     for(const a of gGC)for(const b of gGC){if(a===b||a.cy>=b.cy)continue;const hm=Math.max(a.h,b.h);
       if(Math.abs(a.h-b.h)<0.2*hm&&Math.abs(a.cx-b.cx)<2*hm&&b.cy-a.cy>0.9*hm&&b.cy-a.cy<4*hm){const ra=camReadGroup(F,a,3),rb=camReadGroup(F,b,3);if(ra.val!=null&&rb.val!=null&&(!best||hm>best.hm))best={ra,rb,hm}}}
-    if(best){set('hr',best.ra);set('spo2',best.rb)}else{res.hr.why=res.spo2.why='heart rate and SpO2 not clearly identified'}}
-  if(gO.length){let top=null,rt=null;for(const g of gO){const r=camReadGroup(F,g,3);if(r.val!=null){top=g;rt=r;break}}
-    if(top){set('co2',rt);const small=gO.filter(g=>g!==top&&g.h<=0.8*top.h&&g.h>=0.25*top.h);
+    if(best){refH=best.hm;set('hr',best.ra);set('spo2',best.rb)}else{res.hr.why=res.spo2.why='heart rate and SpO2 not clearly identified'}}
+  if(gO.length){let top=null,rt=null;{const g=gO[0];const r=camReadGroup(F,g,3);if(r.val!=null){top=g;rt=r}}
+    if(top){const bigO=F.comps.filter(c=>c.k===3&&c.h>=CAMREAD.minH&&c.h<=CAMREAD.maxH&&c.n>=20&&c.w<=1.1*c.h&&c.w>=0.3*c.h&&c.n/(c.w*c.h)>=0.3&&c.n/(c.w*c.h)<=0.85&&camRingDark(F,c)<=85).reduce((m,c)=>Math.max(m,c.h),0);
+      if(top.h<0.75*bigO||(refH&&top.h<0.7*refH)){rt=null;res.co2.why='CO2 digits not clear (a larger orange number was not readable)'}
+      if(rt)set('co2',rt);const small=gO.filter(g=>g!==top&&g.h<=0.8*top.h&&g.h>=0.25*top.h);
       if(small.length>=2){const rr=small.slice().sort((a,b)=>b.cx-a.cx)[0];set('rr',camReadGroup(F,rr,2))}else res.rr.why='respiratory rate not clearly identified'}
     else res.co2.why='unclear digit'}
   if(gW.length){let best=null;
@@ -997,11 +999,28 @@ function readFrameCamOnce(cv){
 function camTilt(lists){const a=[];for(const L of lists)for(const g of L){if(g.glyphs.length>=2&&g.h>=20){const f=g.glyphs[0],l=g.glyphs[g.glyphs.length-1],dx=(l.x0+l.x1)/2-(f.x0+f.x1)/2,dy=(l.y0+l.y1)/2-(f.y0+f.y1)/2;if(dx>0.5*g.h)a.push(Math.atan2(dy,dx))}}
   if(!a.length)return 0;a.sort((p,q)=>p-q);return a[Math.floor(a.length/2)]}
 function camCount(r){return PARAMS.filter(k=>r[k].val!=null).length}
-function readFrameCam(cv){
+function readFrameCam0(cv){
   const r1=readFrameCamOnce(cv),ang=r1.__ang||0;
   if(camCount(r1)>=7||Math.abs(ang)<0.04||Math.abs(ang)>0.5)return r1;
   try{const t=document.createElement('canvas');t.width=cv.width;t.height=cv.height;const c=t.getContext('2d',{willReadFrequently:true});c.fillStyle='#000';c.fillRect(0,0,t.width,t.height);c.translate(t.width/2,t.height/2);c.rotate(-ang);c.translate(-t.width/2,-t.height/2);c.drawImage(cv,0,0);
     const r2=readFrameCamOnce(t);if(camCount(r2)>camCount(r1)){r2.__deskew=ang;return r2}}catch(e){}
   return r1}
+
+function camVariant(cv,sc,noiseBlur){const t=document.createElement('canvas');t.width=cv.width;t.height=cv.height;const c=t.getContext('2d',{willReadFrequently:true});c.fillStyle='#000';c.fillRect(0,0,t.width,t.height);
+  if(noiseBlur){c.filter='blur(1.2px)'}c.translate(t.width/2,t.height/2);c.scale(sc,sc);c.translate(-t.width/2,-t.height/2);c.drawImage(cv,0,0);return t}
+// Read the frame in 3 ways and keep a number only if two ways agree (or only one way read it, with decent confidence and no other way disagreeing). A disagreement is left blank, never guessed.
+function readFrameCam(cv){
+  const rs=[readFrameCam0(cv)];
+  try{rs.push(readFrameCam0(camVariant(cv,1,true)));rs.push(readFrameCam0(camVariant(cv,0.8,true)))}catch(e){}
+  const out=rs[0];
+  PARAMS.forEach(k=>{const vals=rs.filter(r=>r[k].val!=null);const m={};vals.forEach(r=>{m[r[k].val]=(m[r[k].val]||[]).concat(r[k])});const keys=Object.keys(m);
+    let pick=null,why='';
+    if(!keys.length)why=rs[0][k].why;
+    else if(keys.length>1){const ranked=keys.sort((a,b)=>m[b].length-m[a].length);if(m[ranked[0]].length>=2&&m[ranked[0]].length>m[ranked[1]].length)pick=ranked[0];else why='readings disagreed, left blank'}
+    else{const arr=m[keys[0]];if(arr.length>=2||arr[0].conf>=0.3)pick=keys[0];else why='only a weak single read, left blank'}
+    if(pick!=null){const arr=m[pick];const best=arr.slice().sort((a,b)=>b.conf-a.conf)[0];out[k]={key:k,val:best.val,conf:best.conf,status:best.status,why:''}}
+    else out[k]={key:k,val:null,conf:0,status:'none',why:why||'not found'}});
+  if(out.sys.val!=null&&out.dia.val!=null&&out.sys.val<=out.dia.val){['sys','dia','map'].forEach(k=>{out[k]={key:k,val:null,conf:0,status:'none',why:'pressures inconsistent'}})}
+  return out}
 
 try{start()}catch(e){var p=document.createElement("pre");p.style.color="#a00";p.textContent=String(e&&e.stack||e);document.getElementById("demo-root").prepend(p)}</script></body></html>
