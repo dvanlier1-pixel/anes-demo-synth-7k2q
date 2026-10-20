@@ -97,6 +97,7 @@ body.camonly #demo-root #condcard,body.camonly #demo-root .srclbl{display:none!i
 @keyframes ccpulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.35;transform:scale(.7)}}
 </style></head><body><div id="demo-root"></div><script>const markup = `
 <div id="camctl"><button class="cc go" id="ccstart">&#9654; Start camera + keep screen on</button><span id="ccind" class="ccind off"><i class="dot"></i><span id="ccindt">camera off</span></span><button class="cc" id="ccrot" style="flex:0 0 auto">&#8635; Rotate view</button><button class="cc stop" id="ccstop">&#9632; Stop</button><label class="ccsend" id="ccsnaplbl"><input type="checkbox" id="ccsnap" checked> Live snapshot to entry phone</label><label class="ccsend"><input type="checkbox" id="ccsend" checked> Auto-send to dev</label><label class="ccsend"><input type="checkbox" id="ccauto" checked> Auto-capture every 5 min</label><span class="ccs small" id="ccnext"></span><button class="cc" id="ccpair" style="flex:0 0 auto">Phone role</button><span class="ccs small" id="ccpairst"></span><span class="ccs small" id="ccstat"></span></div>
+<div id="vtab" style="display:none;padding:6px 12px;background:#fff;border-bottom:2px solid #999"></div>
 <div id="snapbox" style="display:none;padding:6px 12px;background:#111;color:#fff;text-align:center" class="small"><img id="snapimg" alt="" style="max-width:100%;max-height:40vh;display:block;margin:0 auto"><div id="snapcap">Waiting for the camera phone snapshot... (test only: nothing with patient identifiers in view)</div></div>
 <div id="pairpanel" style="display:none;padding:8px 12px;border-bottom:2px solid #999;background:#f3f6ff" class="small"></div>
 <div id="banner">DEMO with synthetic data only. Not a medical record. Not for clinical use. Nothing here is validated on a real monitor or approved for patients.</div>
@@ -1066,12 +1067,20 @@ function pairSend(s){try{if(!PAIR.room||PAIR.role!=='cam')return;const vals={},c
   fetch('https://ntfy.sh/'+pairTopic(),{method:'POST',body,keepalive:true}).then(()=>{pairTx++;pairLast=new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});pairStatus()}).catch(()=>{})}catch(e){}}
 function pairStatus(){const el=document.getElementById('ccpairst');if(!el)return;
   el.textContent=!PAIR.room?'':PAIR.role==='cam'?'Paired CAMERA phone, room '+PAIR.room+' | sent '+pairTx+(pairLast?' (last '+pairLast+')':''):PAIR.role==='entry'?'Paired ENTRY phone, room '+PAIR.room+' | received '+pairRx+(pairLast?' (last '+pairLast+')':''):''}
+function renderVT(){try{const el=document.getElementById('vtab');if(!el||PAIR.role!=='entry')return;el.style.display='';
+  const rows=S.readings.filter(s=>s.source==='paired camera phone').slice().reverse().slice(0,8);const v=x=>x==null?'-':x;
+  let h='<table style="width:100%;border-collapse:collapse;font-size:15px;text-align:center"><tr style="background:#eee"><th>Time</th><th>HR</th><th>SpO2</th><th>EtCO2</th><th>RR</th><th>NIBP</th><th></th></tr>';
+  if(!rows.length)h+='<tr><td colspan="7" class="small">No readings received yet.</td></tr>';
+  for(const s of rows){const p=s.params,t=(s.history.find(x=>/captured at device time/.test(x.what))||{what:''}).what.replace(/.*device time /,'').replace(/:\d\d(\s|$)/,'$1');
+    const bp=(p.sys.val==null&&p.dia.val==null)?'-':v(p.sys.val)+'/'+v(p.dia.val)+(p.map.val!=null?' ('+p.map.val+')':'');
+    h+='<tr style="border-top:1px solid #ccc"><td>'+esc(t||fmt(s.capT))+'</td><td>'+v(p.hr.val)+'</td><td>'+v(p.spo2.val)+'</td><td>'+v(p.co2.val)+'</td><td>'+v(p.rr.val)+'</td><td>'+bp+'</td><td class="small">'+(s.status==='confirmed'?'ok':s.status==='rejected'?'x':'?')+'</td></tr>'}
+  el.innerHTML=h+'</table><div class="small">Newest first. Blank = not read. ? = pending, confirm in Review. Test only.</div>'}catch(e){}}
 function pairIngest(o){try{if(!o||o.kind!=='pair'||!o.vals)return;let seen={};try{seen=JSON.parse(localStorage.getItem('anesPairSeen')||'{}')}catch(e){}
   if(seen[o.id])return;seen[o.id]=1;const ks=Object.keys(seen);if(ks.length>200)delete seen[ks[0]];try{localStorage.setItem('anesPairSeen',JSON.stringify(seen))}catch(e){}
   const res={};PARAMS.forEach(k=>{const v=o.vals[k];const c=(o.conf&&o.conf[k])||0;res[k]={key:k,val:(v==null?null:v),conf:c,status:v==null?'none':(c<0.45?'low':'ok'),why:v==null?'not read by camera phone':''}});
   const s=newSet(res,null);s.source='paired camera phone';const tm=new Date(o.at).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',second:'2-digit'});
   s.history.push({at:wall(),caseT:S.clock,who:'reader',what:'received from paired camera phone, captured at device time '+tm});
-  pairRx++;pairLast=tm;pairStatus();renderReview();renderChart();updateBadges();
+  pairRx++;pairLast=tm;pairStatus();renderVT();renderReview();renderChart();updateBadges();
   const lr=document.getElementById('lastread');if(lr)lr.innerHTML='Received from camera phone ('+esc(tm)+'). Go to Review to confirm, edit or reject.'}catch(e){}}
 function pairListen(){if(!PAIR.room||PAIR.role!=='entry'||typeof EventSource==='undefined')return;
   const open=()=>{let es;try{es=new EventSource('https://ntfy.sh/'+pairTopic()+'/sse?since=12h')}catch(e){return}
@@ -1092,6 +1101,7 @@ function pairInit(){const bar=document.getElementById('ccpair'),pn=document.getE
       es.onmessage=ev=>{try{const m=JSON.parse(ev.data);if(m.event==='message'&&m.attachment&&m.attachment.url&&(m.time||0)*1000>=lastSnap){lastSnap=(m.time||0)*1000;si.src=m.attachment.url}}catch(e){}};es.onerror=()=>{try{es.close()}catch(e){}setTimeout(open,5000)}};open();
     setInterval(()=>{if(!lastSnap)return;const s=Math.round((Date.now()-lastSnap)/1000);sc.textContent='Camera snapshot, '+(s<90?s+'s':Math.round(s/60)+' min')+' ago (still image, not video; test only, no patient identifiers)'},1000)}
   if(PAIR.role==='entry'){const cs=document.getElementById('ccstat');if(cs)cs.style.display='none';const rb=document.getElementById('ccrot');if(rb)rb.style.display='none'}
+  if(PAIR.role==='entry')setInterval(renderVT,3000);
   pairStatus();pairListen();
   bar.onclick=()=>{const open=pn.style.display==='none';pn.style.display=open?'':'none';if(!open)return;
     const cur=PAIR.role,oth=cur==='entry'?'cam':'entry';
