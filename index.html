@@ -1,4 +1,4 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="robots" content="noindex,nofollow"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Anesthesia charting demo (synthetic data only) rev 12</title><style>html,body{margin:0;background:#fff}#demo-root{--ink:#251f21;--ink2:#585254;--rule:#d9d6d7;--teal:#2f7f6d;--red:#c4202c;--sand:#f4efec}
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="robots" content="noindex,nofollow"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Anesthesia charting demo (synthetic data only) rev 13</title><style>html,body{margin:0;background:#fff}#demo-root{--ink:#251f21;--ink2:#585254;--rule:#d9d6d7;--teal:#2f7f6d;--red:#c4202c;--sand:#f4efec}
 #demo-root *{box-sizing:border-box}
 #demo-root{margin:0;font:15px/1.4 system-ui,Arial,sans-serif;color:var(--ink);background:#fff}
 #demo-root #banner{position:static;top:0;z-index:5;background:#fff4d6;border-bottom:2px solid #d9b44a;padding:6px 12px;font-weight:600;font-size:13px}
@@ -79,11 +79,13 @@
 #demo-root .ccs{flex:0 1 auto;white-space:nowrap}
 }
 #demo-root .ccsend{display:flex;align-items:center;gap:6px;font-size:13px;font-weight:600}#demo-root .ccsend input{width:20px;height:20px}
+body.camonly #demo-root #src,body.camonly #demo-root #file,body.camonly #demo-root #cond{display:none!important}body.camonly #demo-root #camstart{display:inline-block!important}
+body.camonly #demo-root #condcard,body.camonly #demo-root .srclbl{display:none!important}
 </style></head><body><div id="demo-root"></div><script>const markup = `
 <div id="camctl"><button class="cc go" id="ccstart">&#9654; Start camera + keep screen on</button><button class="cc stop" id="ccstop">&#9632; Stop</button><label class="ccsend"><input type="checkbox" id="ccsend" checked> Auto-send to dev</label><span class="ccs small" id="ccstat"></span></div>
 <div id="banner">DEMO with synthetic data only. Not a medical record. Not for clinical use. Nothing here is validated on a real monitor or approved for patients.</div>
 <header><h1>Anesthesia charting assistant (prototype)</h1>
-<details id="aboutd" open><summary class="small">About and privacy &middot; <b>rev 12</b></summary><div class="small">Runs in this page. Nothing is uploaded by this demo. The Share / export button only runs when you tap it, and it hands the text to your phone's share sheet or clipboard. With "Auto-send to dev" ticked (it is ticked by default in this test build), each Capture sends the reading values and the camera frame, plus camera start errors, to a private test channel on the public ntfy.sh service, where the developer reads them; the channel name is unlisted but not secret, and ntfy.sh keeps messages about 12 hours. Untick it to stop sending. Never point the camera at anything with patient information. If the phone screen locks the page pauses (the demo clock and camera stop); the Keep screen on button asks the browser to prevent that where it can. Stamps use the real device clock at the moment you tap, and saved case entries are kept on this device. Synthetic case entries are autosaved in this browser on this device only (Clear erases them). If you use voice, your browser may send audio to its vendor's speech service, so never speak patient information.</div></details></header>
+<details id="aboutd" open><summary class="small">About and privacy &middot; <b>rev 13</b></summary><div class="small">Runs in this page. Nothing is uploaded by this demo. The Share / export button only runs when you tap it, and it hands the text to your phone's share sheet or clipboard. With "Auto-send to dev" ticked (it is ticked by default in this test build), each Capture sends the reading values and the camera frame, plus camera start errors, to a private test channel on the public ntfy.sh service, where the developer reads them; the channel name is unlisted but not secret, and ntfy.sh keeps messages about 12 hours. Untick it to stop sending. Never point the camera at anything with patient information. If the phone screen locks the page pauses (the demo clock and camera stop); the Keep screen on button asks the browser to prevent that where it can. Stamps use the real device clock at the moment you tap, and saved case entries are kept on this device. Synthetic case entries are autosaved in this browser on this device only (Clear erases them). If you use voice, your browser may send audio to its vendor's speech service, so never speak patient information.</div></details></header>
 <nav id="nav"></nav>
 
 <section id="s-monitor">
@@ -95,7 +97,7 @@
   </div>
   <div style="min-width:260px;flex:1">
    <div class="card">
-    <b>Source</b><br>
+    <span class="srclbl"><b>Source</b><br></span>
     <select id="src"><option value="sim">Simulated screen (made-up)</option><option value="img">Uploaded image</option><option value="cam">Camera (experimental)</option></select>
     <input type="file" id="file" accept="image/*" style="display:none">
     <button class="b" id="camstart" style="display:none">Start camera</button>
@@ -107,7 +109,7 @@
     <button class="b" id="run">Run</button> <button class="b" id="step">+1 min</button> <button class="b" id="step5">+5 min</button>
     <label class="small"><input type="checkbox" id="auto"> auto-capture every 5 min</label>
    </div>
-   <div class="card">
+   <div class="card" id="condcard">
     <b>Simulate screen conditions</b><br>
     <select id="cond"></select>
     <div class="small">Tests whether the reader refuses unreadable screens instead of guessing.</div>
@@ -703,9 +705,9 @@ function setupSummary(){const on=Object.keys(S.setup.checks).filter(k=>S.setup.c
 function initCamCtl(){const st=$('#ccstat'),bar=$('#camctl');if(!bar)return;
   const sync=()=>{try{document.documentElement.style.setProperty('--cch',bar.offsetHeight+'px')}catch(e){}if(st)st.textContent='Camera '+(S.stream?'ON':'off')+' | Keep screen on '+(__wlWant?'ON':'off')};
   $('#ccstart').onclick=()=>{try{show('monitor');const sel=$('#src');sel.value='cam';sel.dispatchEvent(new Event('change'));const go=$('#camstart');if(go)go.click();__wlWant=true;wlAcquire();wlLabel()}catch(e){}setTimeout(sync,300);setTimeout(sync,1500)};
-  $('#ccstop').onclick=()=>{try{if(window.__camStop)window.__camStop();const sel=$('#src');sel.value='sim';sel.dispatchEvent(new Event('change'));__wlWant=false;wlRelease();wlLabel()}catch(e){}sync()};
+  $('#ccstop').onclick=()=>{try{if(window.__camStop)window.__camStop();const sel=$('#src');sel.value=DEFSRC;sel.dispatchEvent(new Event('change'));__wlWant=false;wlRelease();wlLabel()}catch(e){}sync()};
   setInterval(sync,1000);window.addEventListener('resize',sync);sync()}
-function camFromBar(k){try{const sel=$('#src');if(!sel)return;if(k==='as'){sel.value='cam';sel.dispatchEvent(new Event('change'));const go=$('#camstart');if(go)go.click();show('monitor')}else if(k==='ae'){if(window.__camStop)window.__camStop();sel.value='sim';sel.dispatchEvent(new Event('change'));const n=$('#srcnote');if(n)n.textContent='Camera stopped by Anesthesia STOP.'}}catch(e){}}
+function camFromBar(k){try{const sel=$('#src');if(!sel)return;if(k==='as'){sel.value='cam';sel.dispatchEvent(new Event('change'));const go=$('#camstart');if(go)go.click();show('monitor')}else if(k==='ae'){if(window.__camStop)window.__camStop();sel.value=DEFSRC;sel.dispatchEvent(new Event('change'));const n=$('#srcnote');if(n)n.textContent='Camera stopped by Anesthesia STOP.'}}catch(e){}}
 let __tbTimer=0;function renderTimeBar(){if(!__tbTimer)__tbTimer=setInterval(()=>{const n=document.getElementById('tbnow');if(n)n.textContent=nowStamp().v},20000);let bar=$('#timebar');if(!bar){const nav=$('#nav');if(!nav||!nav.parentNode)return;bar=document.createElement('div');bar.id='timebar';nav.parentNode.insertBefore(bar,nav.nextSibling)}
   const s=S.setup;if(!s)return;const ns=nowStamp();
   bar.innerHTML='<div class="tbrow">'+[['as','Anesthesia','START'],['ae','Anesthesia','STOP'],['ss','Surgery','START'],['se','Surgery','STOP']].map(t=>{const v=s.times[t[0]];return '<button class="tbb'+(v?' set':'')+'" data-tb="'+t[0]+'"><span class="tbl">'+t[1]+' '+t[2]+'</span><span class="tbv">'+(v?esc(v):'tap to stamp')+'</span></button>'}).join('')+'</div><div class="small tbn">Taps stamp the '+(s.timeMode==='demo'?'simulated demo case clock':'device clock')+' (now <span id="tbnow">'+esc(ns.v)+'</span>). Tapping a set button asks before replacing. Times stay pending until you confirm the case setup (Drugs tab) and can be edited there. Nothing detects the event.</div><div class="tbn"><button class="b" id="tbshare">Share / export these stamps and readings</button> <span class="small">Opens your phone share sheet or copies text. Only you send it.</span></div><div class="tbn"><button class="b" id="wlbtn">Keep screen on</button> <span class="small" id="wlstat"></span></div>';
@@ -755,6 +757,7 @@ function updClock(){const d=dueMark();$('#clock').textContent=fmt(S.clock)+(d!=n
 function tick(mins){for(let i=0;i<mins;i++){S.clock++;if(S.cond==='nibpstuck')sim.nibpOn=false;else sim.nibpOn=true;simStep()}updClock();refreshView()}
 function refreshView(){if(S.src==='sim'){renderSimToView();$('#viewinfo').textContent='Source: simulated screen (made-up values). Condition: '+CONDS[S.cond]}else if(S.src==='img'&&S.srcImg){vctx.fillStyle='#000';vctx.fillRect(0,0,960,540);vctx.drawImage(S.srcImg,0,0,960,540)}else if(S.src==='cam'&&S.stream){drawCam()}}
 let autoLast=START;
+const DEFSRC=(typeof location!=='undefined'&&/[?&]sim=1/.test(location.search))?'sim':'cam';
 const DEV_TOPIC='hal-anes-7622c67c9eefa26a26cb1c4b';
 function devOn(){const c=document.getElementById('ccsend');return !!(c&&c.checked)}
 function devSend(kind,obj,frame){try{if(!devOn())return;const body=JSON.stringify(Object.assign({kind:kind,rev:'11',at:new Date().toISOString(),ua:navigator.userAgent.slice(0,120)},obj));
@@ -806,14 +809,14 @@ function initUI(){setupInit();saveInit();
   $('#runtest').onclick=()=>runSelfTest();
   updClock();renderSimToView();show('monitor');updateBadges()}
 function loadSample(){
-  const keep=S.cond;S.cond='none';S.src='sim';
+  const keep=S.cond,keepSrc=S.src;S.cond='none';S.src='sim';
   S.readings=[];S.drugs=[];S.rhythm=[];S.clock=START;sim.nibpAt=START-5;sim.nibpOn=true;S.lastCaptures=[];S.nibpRun=null;
   const texts=[['propofol 120 mg at 9:00',0],['fentanyl 50 mcg at 9:00',0],['lidocaine 50 mg at 9:00',0],['ancef 1 g at 9:10',10],['propofol drip 30 mcg/kg/min at 9:10',10],['glycopyrrolate 0.2 mg at 9:10',10],['zofran 4 mg at 10:05',65],['fentanyl 50 mcg at 10:15',75]];
   let ti=0;for(let m=0;m<=95;m++){if(m>0){S.clock++;simStep()}
     while(ti<texts.length&&texts[ti][1]<=m){const d=addDrug(parseDrug(texts[ti][0],S.clock));if(d.hold.length==0){d.status='confirmed';hist(d,'SAMPLE','auto-confirmed for test (bypasses review)')}ti++}
     if(m%5===0){renderSimToView();const s=capture();s.status='confirmed';hist(s,'SAMPLE','auto-confirmed for test (bypasses review)')}}
   [0,15,30,45,60,77,90].forEach((m,i)=>{const r=addRhythm('SR',START+m,'sample');r.status='confirmed';hist(r,'SAMPLE','auto-confirmed for test (bypasses review)')});
-  recomputeFlags();S.cond=keep;updClock();renderReview();renderDrugs();renderRhythm();renderChart();updateBadges()}
+  recomputeFlags();S.cond=keep;S.src=keepSrc;updClock();renderReview();renderDrugs();renderRhythm();renderChart();updateBadges()}
 /* ---------- self-test ---------- */
 async function runSelfTest(){
   const out=$('#testout');const log=s=>{out.textContent+=s+'\n'};out.textContent='';const R={};
@@ -898,7 +901,7 @@ async function runSelfTest(){
   const h2=document.createElement('div');h2.id='chartpng';h2.style.display='none';h2.textContent=R.chartPng;document.body.appendChild(h2);const h3=document.createElement('div');h3.id='logpng';h3.style.display='none';h3.textContent=R.logPng;document.body.appendChild(h3);
   const h4=document.createElement('div');h4.id='viewpng';h4.style.display='none';renderSimToView();h4.textContent=$('#view').toDataURL('image/png');document.body.appendChild(h4);
   const h5=document.createElement('div');h5.id='done';h5.textContent='DONE';document.body.appendChild(h5)}
-function start(){if(__started)return;__started=true;initUI();initCamCtl();try{const d=document.getElementById('aboutd');if(d&&window.matchMedia('(orientation:landscape) and (max-height:600px)').matches)d.removeAttribute('open')}catch(e){}wlInit();const q=new URLSearchParams(location.search);if(q.get('sample')==='1')loadSample();if(q.get('cond')){S.cond=q.get('cond');$('#cond').value=S.cond;refreshView()}if(q.get('cap')==='1')doCapture();if(q.get('tab'))show(q.get('tab'));if(location.search.includes('selftest=1'))setTimeout(runSelfTest,50)}
+function start(){if(__started)return;__started=true;initUI();initCamCtl();try{if(DEFSRC==='cam'){const sel=$('#src');sel.value='cam';sel.dispatchEvent(new Event('change'));document.body.classList.add('camonly');const vi=$('#viewinfo');if(vi)vi.textContent='Camera only. Tap Start camera (top bar) to begin.'}}catch(e){}try{const d=document.getElementById('aboutd');if(d&&window.matchMedia('(orientation:landscape) and (max-height:600px)').matches)d.removeAttribute('open')}catch(e){}wlInit();const q=new URLSearchParams(location.search);if(q.get('sample')==='1')loadSample();if(q.get('cond')){S.cond=q.get('cond');$('#cond').value=S.cond;refreshView()}if(q.get('cap')==='1')doCapture();if(q.get('tab'))show(q.get('tab'));if(location.search.includes('selftest=1'))setTimeout(runSelfTest,50)}
 
 /* 15-min record for SpO2/CO2/RR: the first capture at or after a scheduled mark is that mark's record. No later reading is substituted; a mark with no capture stays a gap. */
 function dueMark(){const ph=(typeof CH!=='undefined'?CH.phase:0)*5;const j=Math.floor((S.clock-START-ph)/15);if(j<0)return null;const mt=START+ph+15*j;return S.readings.some(s=>s.recFor===mt)?null:mt}
