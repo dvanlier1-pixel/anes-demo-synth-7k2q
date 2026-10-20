@@ -1,4 +1,4 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="robots" content="noindex,nofollow"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Anesthesia charting demo (synthetic data only) rev 9b</title><style>html,body{margin:0;background:#fff}#demo-root{--ink:#251f21;--ink2:#585254;--rule:#d9d6d7;--teal:#2f7f6d;--red:#c4202c;--sand:#f4efec}
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="robots" content="noindex,nofollow"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Anesthesia charting demo (synthetic data only) rev 10</title><style>html,body{margin:0;background:#fff}#demo-root{--ink:#251f21;--ink2:#585254;--rule:#d9d6d7;--teal:#2f7f6d;--red:#c4202c;--sand:#f4efec}
 #demo-root *{box-sizing:border-box}
 #demo-root{margin:0;font:15px/1.4 system-ui,Arial,sans-serif;color:var(--ink);background:#fff}
 #demo-root #banner{position:static;top:0;z-index:5;background:#fff4d6;border-bottom:2px solid #d9b44a;padding:6px 12px;font-weight:600;font-size:13px}
@@ -66,10 +66,23 @@
 #demo-root #s-monitor button.b{min-height:40px}
 #demo-root #s-monitor #capture{width:100%;min-height:48px;font-weight:700}
 }
+
+#demo-root #camctl{position:sticky;top:0;z-index:8;display:flex;gap:8px;align-items:center;flex-wrap:wrap;background:#fff;border-bottom:2px solid var(--ink);padding:8px 12px}
+#demo-root #timebar{top:var(--cch,0px)}
+#demo-root .cc{border:2px solid var(--ink);border-radius:12px;font:inherit;font-weight:700;min-height:52px;padding:6px 14px;cursor:pointer}
+#demo-root .cc.go{flex:1 1 220px;background:#1f7a4d;border-color:#1f7a4d;color:#fff;font-size:16px}
+#demo-root .cc.stop{flex:0 0 auto;background:#fff;color:var(--red);border-color:var(--red)}
+#demo-root .ccs{flex:1 1 100%}
+@media (orientation:landscape) and (max-height:600px){
+#demo-root #camctl{padding:4px 10px;flex-wrap:nowrap}
+#demo-root .cc{min-height:40px;padding:2px 12px;font-size:14px}
+#demo-root .ccs{flex:0 1 auto;white-space:nowrap}
+}
 </style></head><body><div id="demo-root"></div><script>const markup = `
+<div id="camctl"><button class="cc go" id="ccstart">&#9654; Start camera + keep screen on</button><button class="cc stop" id="ccstop">&#9632; Stop</button><span class="ccs small" id="ccstat"></span></div>
 <div id="banner">DEMO with synthetic data only. Not a medical record. Not for clinical use. Nothing here is validated on a real monitor or approved for patients.</div>
 <header><h1>Anesthesia charting assistant (prototype)</h1>
-<details id="aboutd" open><summary class="small">About and privacy &middot; <b>rev 9b</b></summary><div class="small">Runs in this page. Nothing is uploaded by this demo. The Share / export button only runs when you tap it, and it hands the text to your phone's share sheet or clipboard. Camera frames stay in memory. If the phone screen locks the page pauses (the demo clock and camera stop); the Keep screen on button asks the browser to prevent that where it can. Stamps use the real device clock at the moment you tap, and saved case entries are kept on this device. Synthetic case entries are autosaved in this browser on this device only (Clear erases them). If you use voice, your browser may send audio to its vendor's speech service, so never speak patient information.</div></details></header>
+<details id="aboutd" open><summary class="small">About and privacy &middot; <b>rev 10</b></summary><div class="small">Runs in this page. Nothing is uploaded by this demo. The Share / export button only runs when you tap it, and it hands the text to your phone's share sheet or clipboard. Camera frames stay in memory. If the phone screen locks the page pauses (the demo clock and camera stop); the Keep screen on button asks the browser to prevent that where it can. Stamps use the real device clock at the moment you tap, and saved case entries are kept on this device. Synthetic case entries are autosaved in this browser on this device only (Clear erases them). If you use voice, your browser may send audio to its vendor's speech service, so never speak patient information.</div></details></header>
 <nav id="nav"></nav>
 
 <section id="s-monitor">
@@ -685,6 +698,11 @@ function wlInit(){document.addEventListener('visibilitychange',()=>{if(document.
 function nowStamp(){if(S.setup.timeMode==='demo')return {v:fmt(S.clock),src:'simulated demo case clock'};const d=new Date(),tz=(Intl.DateTimeFormat().resolvedOptions().timeZone||'local');return {v:String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0'),src:'device local time, '+tz}}
 function setupLabel2(k){return(SETUP_TIMES.find(t=>t[0]===k)||[k,k])[1]}
 function setupSummary(){const on=Object.keys(S.setup.checks).filter(k=>S.setup.checks[k]).map(setupLabel);return 'date '+S.setup.date+'; checked: '+on.join(', ')+'; times '+SETUP_TIMES.map(t=>t[1]+' '+(S.setup.times[t[0]]||'blank')).join(', ')}
+function initCamCtl(){const st=$('#ccstat'),bar=$('#camctl');if(!bar)return;
+  const sync=()=>{try{document.documentElement.style.setProperty('--cch',bar.offsetHeight+'px')}catch(e){}if(st)st.textContent='Camera '+(S.stream?'ON':'off')+' | Keep screen on '+(__wlWant?'ON':'off')};
+  $('#ccstart').onclick=()=>{try{show('monitor');const sel=$('#src');sel.value='cam';sel.dispatchEvent(new Event('change'));const go=$('#camstart');if(go)go.click();__wlWant=true;wlAcquire();wlLabel()}catch(e){}setTimeout(sync,300);setTimeout(sync,1500)};
+  $('#ccstop').onclick=()=>{try{if(window.__camStop)window.__camStop();const sel=$('#src');sel.value='sim';sel.dispatchEvent(new Event('change'));__wlWant=false;wlRelease();wlLabel()}catch(e){}sync()};
+  setInterval(sync,1000);window.addEventListener('resize',sync);sync()}
 function camFromBar(k){try{const sel=$('#src');if(!sel)return;if(k==='as'){sel.value='cam';sel.dispatchEvent(new Event('change'));const go=$('#camstart');if(go)go.click();show('monitor')}else if(k==='ae'){if(window.__camStop)window.__camStop();sel.value='sim';sel.dispatchEvent(new Event('change'));const n=$('#srcnote');if(n)n.textContent='Camera stopped by Anesthesia STOP.'}}catch(e){}}
 let __tbTimer=0;function renderTimeBar(){if(!__tbTimer)__tbTimer=setInterval(()=>{const n=document.getElementById('tbnow');if(n)n.textContent=nowStamp().v},20000);let bar=$('#timebar');if(!bar){const nav=$('#nav');if(!nav||!nav.parentNode)return;bar=document.createElement('div');bar.id='timebar';nav.parentNode.insertBefore(bar,nav.nextSibling)}
   const s=S.setup;if(!s)return;const ns=nowStamp();
@@ -867,7 +885,7 @@ async function runSelfTest(){
   const h2=document.createElement('div');h2.id='chartpng';h2.style.display='none';h2.textContent=R.chartPng;document.body.appendChild(h2);const h3=document.createElement('div');h3.id='logpng';h3.style.display='none';h3.textContent=R.logPng;document.body.appendChild(h3);
   const h4=document.createElement('div');h4.id='viewpng';h4.style.display='none';renderSimToView();h4.textContent=$('#view').toDataURL('image/png');document.body.appendChild(h4);
   const h5=document.createElement('div');h5.id='done';h5.textContent='DONE';document.body.appendChild(h5)}
-function start(){if(__started)return;__started=true;initUI();try{const d=document.getElementById('aboutd');if(d&&window.matchMedia('(orientation:landscape) and (max-height:600px)').matches)d.removeAttribute('open')}catch(e){}wlInit();const q=new URLSearchParams(location.search);if(q.get('sample')==='1')loadSample();if(q.get('cond')){S.cond=q.get('cond');$('#cond').value=S.cond;refreshView()}if(q.get('cap')==='1')doCapture();if(q.get('tab'))show(q.get('tab'));if(location.search.includes('selftest=1'))setTimeout(runSelfTest,50)}
+function start(){if(__started)return;__started=true;initUI();initCamCtl();try{const d=document.getElementById('aboutd');if(d&&window.matchMedia('(orientation:landscape) and (max-height:600px)').matches)d.removeAttribute('open')}catch(e){}wlInit();const q=new URLSearchParams(location.search);if(q.get('sample')==='1')loadSample();if(q.get('cond')){S.cond=q.get('cond');$('#cond').value=S.cond;refreshView()}if(q.get('cap')==='1')doCapture();if(q.get('tab'))show(q.get('tab'));if(location.search.includes('selftest=1'))setTimeout(runSelfTest,50)}
 
 /* 15-min record for SpO2/CO2/RR: the first capture at or after a scheduled mark is that mark's record. No later reading is substituted; a mark with no capture stays a gap. */
 function dueMark(){const ph=(typeof CH!=='undefined'?CH.phase:0)*5;const j=Math.floor((S.clock-START-ph)/15);if(j<0)return null;const mt=START+ph+15*j;return S.readings.some(s=>s.recFor===mt)?null:mt}
