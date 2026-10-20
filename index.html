@@ -44,7 +44,7 @@
 </style></head><body><div id="demo-root"></div><script>const markup = `
 <div id="banner">DEMO with synthetic data only. Not a medical record. Not for clinical use. Nothing here is validated on a real monitor or approved for patients.</div>
 <header><h1>Anesthesia charting assistant (prototype)</h1>
-<div class="small">Runs in this page. Nothing is uploaded by this demo. Camera frames stay in memory. Synthetic case entries are autosaved in this browser on this device only (Clear erases them). If you use voice, your browser may send audio to its vendor's speech service, so never speak patient information.</div></header>
+<div class="small">Runs in this page. Nothing is uploaded by this demo. The Share / export button only runs when you tap it, and it hands the text to your phone's share sheet or clipboard. Camera frames stay in memory. Synthetic case entries are autosaved in this browser on this device only (Clear erases them). If you use voice, your browser may send audio to its vendor's speech service, so never speak patient information.</div></header>
 <nav id="nav"></nav>
 
 <section id="s-monitor">
@@ -632,12 +632,32 @@ function guardTime(k,nv,via){const s=S.setup,old=s.times[k],L=setupLabel2(k);
   if(w.length&&!confirm('Check the times: '+w.join(' ')+' Keep '+L+' '+nv+' anyway?'))return false;
   s.tsrc[k]=src;
   return true}
+function buildExport(){const s=S.setup,L=[];
+  L.push('SYNTHETIC DEMO EXPORT - NOT A MEDICAL RECORD - NOT FOR CLINICAL USE');
+  L.push('Exported '+new Date().toISOString().slice(0,19).replace('T',' ')+' UTC. Case date '+(s.date||'')+'. Time source: '+(s.timeMode==='demo'?'demo case clock':'device clock')+'. Setup status: '+s.status+'.');
+  L.push('');L.push('TIMES (manual stamps)');
+  SETUP_TIMES.forEach(t=>L.push('  '+t[1]+': '+(s.times[t[0]]||'not stamped')));
+  L.push('');L.push('VITALS READINGS ('+S.readings.length+')');
+  S.readings.forEach(r=>{const p=PARAMS.map(k=>PLABEL[k]+' '+(r.params&&r.params[k]&&r.params[k].val!=null?r.params[k].val:'-')).join(', ');L.push('  '+fmt(r.capT)+' ['+r.status+'] '+p+(r.recFor!=null?' (scheduled block '+fmt(r.recFor)+')':''))});
+  L.push('');L.push('DRUGS ('+S.drugs.length+')');
+  S.drugs.forEach(d=>L.push('  '+fmt(d.given)+' ['+d.status+'] '+d.drug+' '+d.dose+' '+d.unit+(d.edited?' (edited)':'')));
+  L.push('');L.push('RHYTHM ('+S.rhythm.length+')');
+  S.rhythm.forEach(r=>L.push('  '+fmt(r.given)+' ['+r.status+'] '+r.text));
+  L.push('');L.push('SETUP LOG');
+  (s.history||[]).forEach(h=>L.push('  '+String(h.at||'').slice(0,19)+' '+h.what));
+  return L.join('\n')}
+function shareCase(){const text=buildExport(),title='Synthetic anesthesia demo export';
+  const copy=()=>{const ta=document.createElement('textarea');ta.value=text;ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(ta);ta.select();let ok=false;try{ok=document.execCommand('copy')}catch(e){}document.body.removeChild(ta);return ok};
+  const show=msg=>{let b=document.getElementById('exportbox');if(!b){b=document.createElement('div');b.id='exportbox';b.className='card';const bar=document.getElementById('timebar');(bar&&bar.parentNode?bar.parentNode:document.body).insertBefore(b,bar?bar.nextSibling:null)}b.innerHTML='<b>Export</b> <span class="small">'+esc(msg)+' Nothing was sent by this page.</span><textarea readonly style="width:100%;height:9em;margin-top:6px"></textarea>';b.querySelector('textarea').value=text};
+  if(navigator.share){navigator.share({title:title,text:text}).then(()=>show('Share sheet opened. Text is shown below too.')).catch(e=>{if(e&&e.name==='AbortError')show('Share cancelled. Text is below, long-press to copy.');else show(copy()?'Copied to clipboard. Text is below.':'Could not share. Long-press the text below to copy.')})}
+  else show(copy()?'Copied to clipboard. Text is below.':'Sharing not available here. Long-press the text below to copy.')}
 function nowStamp(){if(S.setup.timeMode==='demo')return {v:fmt(S.clock),src:'simulated demo case clock'};const d=new Date(),tz=(Intl.DateTimeFormat().resolvedOptions().timeZone||'local');return {v:String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0'),src:'device local time, '+tz}}
 function setupLabel2(k){return(SETUP_TIMES.find(t=>t[0]===k)||[k,k])[1]}
 function setupSummary(){const on=Object.keys(S.setup.checks).filter(k=>S.setup.checks[k]).map(setupLabel);return 'date '+S.setup.date+'; checked: '+on.join(', ')+'; times '+SETUP_TIMES.map(t=>t[1]+' '+(S.setup.times[t[0]]||'blank')).join(', ')}
 let __tbTimer=0;function renderTimeBar(){if(!__tbTimer)__tbTimer=setInterval(()=>{const n=document.getElementById('tbnow');if(n)n.textContent=nowStamp().v},20000);let bar=$('#timebar');if(!bar){const nav=$('#nav');if(!nav||!nav.parentNode)return;bar=document.createElement('div');bar.id='timebar';nav.parentNode.insertBefore(bar,nav.nextSibling)}
   const s=S.setup;if(!s)return;const ns=nowStamp();
-  bar.innerHTML='<div class="tbrow">'+[['as','Anesthesia','START'],['ae','Anesthesia','STOP'],['ss','Surgery','START'],['se','Surgery','STOP']].map(t=>{const v=s.times[t[0]];return '<button class="tbb'+(v?' set':'')+'" data-tb="'+t[0]+'"><span class="tbl">'+t[1]+' '+t[2]+'</span><span class="tbv">'+(v?esc(v):'tap to stamp')+'</span></button>'}).join('')+'</div><div class="small tbn">Taps stamp the '+(s.timeMode==='demo'?'simulated demo case clock':'device clock')+' (now <span id="tbnow">'+esc(ns.v)+'</span>). Tapping a set button asks before replacing. Times stay pending until you confirm the case setup (Drugs tab) and can be edited there. Nothing detects the event.</div>';
+  bar.innerHTML='<div class="tbrow">'+[['as','Anesthesia','START'],['ae','Anesthesia','STOP'],['ss','Surgery','START'],['se','Surgery','STOP']].map(t=>{const v=s.times[t[0]];return '<button class="tbb'+(v?' set':'')+'" data-tb="'+t[0]+'"><span class="tbl">'+t[1]+' '+t[2]+'</span><span class="tbv">'+(v?esc(v):'tap to stamp')+'</span></button>'}).join('')+'</div><div class="small tbn">Taps stamp the '+(s.timeMode==='demo'?'simulated demo case clock':'device clock')+' (now <span id="tbnow">'+esc(ns.v)+'</span>). Tapping a set button asks before replacing. Times stay pending until you confirm the case setup (Drugs tab) and can be edited there. Nothing detects the event.</div><div class="tbn"><button class="b" id="tbshare">Share / export these stamps and readings</button> <span class="small">Opens your phone share sheet or copies text. Only you send it.</span></div>';
+  const sh=bar.querySelector('#tbshare');if(sh)sh.onclick=shareCase;
   bar.querySelectorAll('[data-tb]').forEach(b=>b.onclick=()=>{const k=b.dataset.tb,old=s.times[k],n2=nowStamp();
     if(!guardTime(k,n2.v,'time bar, '+n2.src))return;
     setupLog(setupLabel2(k)+' time '+(old||'blank')+' to '+n2.v+' (on-screen time bar button, '+n2.src+')');s.times[k]=n2.v;renderSetup();renderChart();updateBadges()})}
