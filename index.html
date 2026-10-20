@@ -1,4 +1,4 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="robots" content="noindex,nofollow"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Anesthesia charting demo (synthetic data only) rev 16</title><style>html,body{margin:0;background:#fff}#demo-root{--ink:#251f21;--ink2:#585254;--rule:#d9d6d7;--teal:#2f7f6d;--red:#c4202c;--sand:#f4efec}
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="robots" content="noindex,nofollow"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Anesthesia charting demo (synthetic data only) rev 17</title><style>html,body{margin:0;background:#fff}#demo-root{--ink:#251f21;--ink2:#585254;--rule:#d9d6d7;--teal:#2f7f6d;--red:#c4202c;--sand:#f4efec}
 #demo-root *{box-sizing:border-box}
 #demo-root{margin:0;font:15px/1.4 system-ui,Arial,sans-serif;color:var(--ink);background:#fff}
 #demo-root #banner{position:static;top:0;z-index:5;background:#fff4d6;border-bottom:2px solid #d9b44a;padding:6px 12px;font-weight:600;font-size:13px}
@@ -82,10 +82,11 @@
 body.camonly #demo-root #src,body.camonly #demo-root #file,body.camonly #demo-root #cond{display:none!important}body.camonly #demo-root #camstart{display:inline-block!important}
 body.camonly #demo-root #condcard,body.camonly #demo-root .srclbl{display:none!important}
 </style></head><body><div id="demo-root"></div><script>const markup = `
-<div id="camctl"><button class="cc go" id="ccstart">&#9654; Start camera + keep screen on</button><button class="cc stop" id="ccstop">&#9632; Stop</button><label class="ccsend"><input type="checkbox" id="ccsend" checked> Auto-send to dev</label><label class="ccsend"><input type="checkbox" id="ccauto" checked> Auto-capture every 5 min</label><span class="ccs small" id="ccnext"></span><span class="ccs small" id="ccstat"></span></div>
+<div id="camctl"><button class="cc go" id="ccstart">&#9654; Start camera + keep screen on</button><button class="cc stop" id="ccstop">&#9632; Stop</button><label class="ccsend"><input type="checkbox" id="ccsend" checked> Auto-send to dev</label><label class="ccsend"><input type="checkbox" id="ccauto" checked> Auto-capture every 5 min</label><span class="ccs small" id="ccnext"></span><button class="cc" id="ccpair" style="flex:0 0 auto">Pair phones</button><span class="ccs small" id="ccpairst"></span><span class="ccs small" id="ccstat"></span></div>
+<div id="pairpanel" style="display:none;padding:8px 12px;border-bottom:2px solid #999;background:#f3f6ff" class="small"></div>
 <div id="banner">DEMO with synthetic data only. Not a medical record. Not for clinical use. Nothing here is validated on a real monitor or approved for patients.</div>
 <header><h1>Anesthesia charting assistant (prototype)</h1>
-<details id="aboutd" open><summary class="small">About and privacy &middot; <b>rev 16</b></summary><div class="small">Runs in this page. Nothing is uploaded by this demo. The Share / export button only runs when you tap it, and it hands the text to your phone's share sheet or clipboard. With "Auto-send to dev" ticked (it is ticked by default in this test build), each Capture sends the reading values and the camera frame, plus camera start errors, to a private test channel on the public ntfy.sh service, where the developer reads them; the channel name is unlisted but not secret, and ntfy.sh keeps messages about 12 hours. Untick it to stop sending. Never point the camera at anything with patient information. If the phone screen locks the page pauses (the demo clock and camera stop); the Keep screen on button asks the browser to prevent that where it can. Stamps use the real device clock at the moment you tap, and saved case entries are kept on this device. Synthetic case entries are autosaved in this browser on this device only (Clear erases them). If you use voice, your browser may send audio to its vendor's speech service, so never speak patient information.</div></details></header>
+<details id="aboutd" open><summary class="small">About and privacy &middot; <b>rev 17</b></summary><div class="small">Runs in this page. Nothing is uploaded by this demo. The Share / export button only runs when you tap it, and it hands the text to your phone's share sheet or clipboard. With "Auto-send to dev" ticked (it is ticked by default in this test build), each Capture sends the reading values and the camera frame, plus camera start errors, to a private test channel on the public ntfy.sh service, where the developer reads them; the channel name is unlisted but not secret, and ntfy.sh keeps messages about 12 hours. Untick it to stop sending. If you pair two phones, the camera phone sends only the reading numbers and a time (no photo) to a private room channel on ntfy.sh, which the other phone reads; enter no patient identifiers anywhere. Never point the camera at anything with patient information. If the phone screen locks the page pauses (the demo clock and camera stop); the Keep screen on button asks the browser to prevent that where it can. Stamps use the real device clock at the moment you tap, and saved case entries are kept on this device. Synthetic case entries are autosaved in this browser on this device only (Clear erases them). If you use voice, your browser may send audio to its vendor's speech service, so never speak patient information.</div></details></header>
 <nav id="nav"></nav>
 
 <section id="s-monitor">
@@ -702,7 +703,7 @@ function wlInit(){document.addEventListener('visibilitychange',()=>{if(document.
 function nowStamp(){if(S.setup.timeMode==='demo')return {v:fmt(S.clock),src:'simulated demo case clock'};const d=new Date(),tz=(Intl.DateTimeFormat().resolvedOptions().timeZone||'local');return {v:String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0'),src:'device local time, '+tz}}
 function setupLabel2(k){return(SETUP_TIMES.find(t=>t[0]===k)||[k,k])[1]}
 function setupSummary(){const on=Object.keys(S.setup.checks).filter(k=>S.setup.checks[k]).map(setupLabel);return 'date '+S.setup.date+'; checked: '+on.join(', ')+'; times '+SETUP_TIMES.map(t=>t[1]+' '+(S.setup.times[t[0]]||'blank')).join(', ')}
-function initCamCtl(){const st=$('#ccstat'),bar=$('#camctl');if(!bar)return;
+function initCamCtl(){try{pairInit()}catch(e){}const st=$('#ccstat'),bar=$('#camctl');if(!bar)return;
   const sync=()=>{try{document.documentElement.style.setProperty('--cch',bar.offsetHeight+'px')}catch(e){}if(st)st.textContent='Camera '+(S.stream?'ON':'off')+' | Keep screen on '+(__wlWant?'ON':'off')};
   $('#ccstart').onclick=()=>{try{show('monitor');const sel=$('#src');sel.value='cam';sel.dispatchEvent(new Event('change'));const go=$('#camstart');if(go)go.click();__wlWant=true;wlAcquire();wlLabel()}catch(e){}setTimeout(sync,300);setTimeout(sync,1500)};
   $('#ccstop').onclick=()=>{try{if(window.__camStop)window.__camStop();const sel=$('#src');sel.value=DEFSRC;sel.dispatchEvent(new Event('change'));__wlWant=false;wlRelease();wlLabel()}catch(e){}sync()};
@@ -766,7 +767,7 @@ let autoLast=START;
 const DEFSRC=(typeof location!=='undefined'&&/[?&]sim=1/.test(location.search))?'sim':'cam';
 const DEV_TOPIC='hal-anes-7622c67c9eefa26a26cb1c4b';
 function devOn(){const c=document.getElementById('ccsend');return !!(c&&c.checked)}
-function devSend(kind,obj,frame){try{if(!devOn())return;const body=JSON.stringify(Object.assign({kind:kind,rev:'15',at:new Date().toISOString(),ua:navigator.userAgent.slice(0,120)},obj));
+function devSend(kind,obj,frame){try{if(!devOn())return;const body=JSON.stringify(Object.assign({kind:kind,rev:'17',at:new Date().toISOString(),ua:navigator.userAgent.slice(0,120)},obj));
   fetch('https://ntfy.sh/'+DEV_TOPIC,{method:'POST',body:body,keepalive:true}).catch(()=>{});
   if(frame){frame.toBlob(b=>{if(b)fetch('https://ntfy.sh/'+DEV_TOPIC,{method:'PUT',body:b,headers:{Filename:'capture-'+Date.now()+'.jpg'}}).catch(()=>{})},'image/jpeg',0.6)}}catch(e){}}
 function drawCam(){const v=document.getElementById('vid');const w=v.videoWidth,h=v.videoHeight;if(!w||!h)return;const sc=Math.min(960/w,540/h),dw=w*sc,dh=h*sc;vctx.fillStyle='#000';vctx.fillRect(0,0,960,540);vctx.drawImage(v,(960-dw)/2,(540-dh)/2,dw,dh)}
@@ -775,7 +776,7 @@ async function camWide(stream){try{const tr=stream.getVideoTracks()[0];const cap
     if(sl&&row){sl.min=caps.zoom.min;sl.max=caps.zoom.max;sl.step=caps.zoom.step||0.1;sl.value=caps.zoom.min;row.style.display='';sl.oninput=()=>{try{tr.applyConstraints({advanced:[{zoom:Number(sl.value)}]})}catch(e){}}}
     info.zoom=[caps.zoom.min,caps.zoom.max]}else if(row)row.style.display='none';
   setTimeout(()=>{const v=document.getElementById('vid');info.w=v.videoWidth;info.h=v.videoHeight;try{info.set=tr.getSettings()}catch(e){}devSend('event',{what:'camera info',info:info})},800)}catch(e){}}
-function doCapture(){refreshView();const s=capture();updClock();try{const vals={};PARAMS.forEach(k=>{vals[k]=s.params[k].val});devSend('capture',{src:S.src,cond:S.cond,capT:s.capT,values:vals,flags:s.flags.length},vctx.canvas)}catch(e){}const txt=PARAMS.map(k=>PLABEL[k]+' '+(s.params[k].val==null?'--':s.params[k].val)).join(' | ');$('#lastread').innerHTML='Captured at '+fmt(s.capT)+': '+esc(txt)+'<br>'+(s.flags.length?s.flags.length+' flag(s). ':'')+'Go to Review to confirm, edit or reject.';
+function doCapture(){refreshView();const s=capture();updClock();try{const vals={};PARAMS.forEach(k=>{vals[k]=s.params[k].val});pairSend(s);devSend('capture',{src:S.src,cond:S.cond,capT:s.capT,values:vals,flags:s.flags.length},vctx.canvas)}catch(e){}const txt=PARAMS.map(k=>PLABEL[k]+' '+(s.params[k].val==null?'--':s.params[k].val)).join(' | ');$('#lastread').innerHTML='Captured at '+fmt(s.capT)+': '+esc(txt)+'<br>'+(s.flags.length?s.flags.length+' flag(s). ':'')+'Go to Review to confirm, edit or reject.';
   const ctx=vctx;ctx.save();ctx.strokeStyle='#ff0';ctx.lineWidth=1;PARAMS.forEach(k=>{const r=LAY[k];ctx.strokeRect(r.x-12,r.y-8,r.w+24,r.h+16)});ctx.restore();
   renderReview();updateBadges();return s}
 function initUI(){setupInit();saveInit();
@@ -1022,5 +1023,39 @@ function readFrameCam(cv){
     else out[k]={key:k,val:null,conf:0,status:'none',why:why||'not found'}});
   if(out.sys.val!=null&&out.dia.val!=null&&out.sys.val<=out.dia.val){['sys','dia','map'].forEach(k=>{out[k]={key:k,val:null,conf:0,status:'none',why:'pressures inconsistent'}})}
   return out}
+
+/* ---------- phone pairing: camera phone publishes reading numbers, entry phone receives them ---------- */
+const PAIRQ=new URLSearchParams(typeof location!=='undefined'?location.search:'');
+const PAIR={room:(PAIRQ.get('room')||'').toLowerCase().replace(/[^a-z0-9]/g,'').slice(0,24),role:PAIRQ.get('role')==='entry'?'entry':PAIRQ.get('role')==='cam'?'cam':''};
+if(PAIR.room.length<4)PAIR.room='';
+const pairTopic=()=>'hal-anes-pair-'+PAIR.room;
+let pairRx=0,pairLast='',pairTx=0;
+function pairSend(s){try{if(!PAIR.room||PAIR.role!=='cam')return;const vals={},conf={};PARAMS.forEach(k=>{vals[k]=s.params[k].val;conf[k]=s.params[k].read.conf});
+  const body=JSON.stringify({kind:'pair',id:'p'+Date.now().toString(36)+Math.random().toString(36).slice(2,6),at:new Date().toISOString(),vals,conf});
+  fetch('https://ntfy.sh/'+pairTopic(),{method:'POST',body,keepalive:true}).then(()=>{pairTx++;pairLast=new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});pairStatus()}).catch(()=>{})}catch(e){}}
+function pairStatus(){const el=document.getElementById('ccpairst');if(!el)return;
+  el.textContent=!PAIR.room?'':PAIR.role==='cam'?'Paired CAMERA phone, room '+PAIR.room+' | sent '+pairTx+(pairLast?' (last '+pairLast+')':''):PAIR.role==='entry'?'Paired ENTRY phone, room '+PAIR.room+' | received '+pairRx+(pairLast?' (last '+pairLast+')':''):''}
+function pairIngest(o){try{if(!o||o.kind!=='pair'||!o.vals)return;let seen={};try{seen=JSON.parse(localStorage.getItem('anesPairSeen')||'{}')}catch(e){}
+  if(seen[o.id])return;seen[o.id]=1;const ks=Object.keys(seen);if(ks.length>200)delete seen[ks[0]];try{localStorage.setItem('anesPairSeen',JSON.stringify(seen))}catch(e){}
+  const res={};PARAMS.forEach(k=>{const v=o.vals[k];const c=(o.conf&&o.conf[k])||0;res[k]={key:k,val:(v==null?null:v),conf:c,status:v==null?'none':(c<0.45?'low':'ok'),why:v==null?'not read by camera phone':''}});
+  const s=newSet(res,null);s.source='paired camera phone';const tm=new Date(o.at).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  s.history.push({at:wall(),caseT:S.clock,who:'reader',what:'received from paired camera phone, captured at device time '+tm});
+  pairRx++;pairLast=tm;pairStatus();renderReview();renderChart();updateBadges();
+  const lr=document.getElementById('lastread');if(lr)lr.innerHTML='Received from camera phone ('+esc(tm)+'). Go to Review to confirm, edit or reject.'}catch(e){}}
+function pairListen(){if(!PAIR.room||PAIR.role!=='entry'||typeof EventSource==='undefined')return;
+  const open=()=>{let es;try{es=new EventSource('https://ntfy.sh/'+pairTopic()+'/sse?since=12h')}catch(e){return}
+    es.onmessage=ev=>{try{const m=JSON.parse(ev.data);if(m.event==='message'&&m.message)pairIngest(JSON.parse(m.message))}catch(e){}};
+    es.onerror=()=>{try{es.close()}catch(e){}setTimeout(open,5000)}};open();
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden)pairStatus()})}
+function pairInit(){const bar=document.getElementById('ccpair'),pn=document.getElementById('pairpanel');if(!bar)return;
+  if(PAIR.role==='entry'){document.body.classList.add('pairentry');['ccstart','ccstop','ccauto','ccsend'].forEach(i=>{const e=document.getElementById(i);if(e){const p=e.closest('label')||e;p.style.display='none'}});const n=document.getElementById('ccnext');if(n)n.style.display='none'}
+  pairStatus();pairListen();
+  bar.onclick=()=>{const open=pn.style.display==='none';pn.style.display=open?'':'none';if(!open)return;
+    let code=PAIR.room;if(!code){try{code=localStorage.getItem('anesRoom')||''}catch(e){}}if(!code){code=Math.random().toString(36).slice(2,10);try{localStorage.setItem('anesRoom',code)}catch(e){}}
+    const base=location.origin+location.pathname,camL=base+'?room='+code+'&role=cam',entL=base+'?room='+code+'&role=entry';
+    pn.innerHTML='<b>Pair two phones (test only, no patient identifiers)</b><br>Room code: <b>'+esc(code)+'</b>. The camera phone sends only the reading numbers (no photo) through a public relay (ntfy.sh, kept about 12 h); the code is unlisted, not secret.<br>'+
+      '<div class="row" style="margin:6px 0"><button class="cc" id="pcam">1. This phone = CAMERA (reload)</button> <button class="cc" id="pshare">2. Send ENTRY link to other phone</button> <button class="cc" id="pent">This phone = ENTRY (reload)</button></div><div class="small" id="pmsg">Entry link: '+esc(entL)+'</div>';
+    document.getElementById('pcam').onclick=()=>{location.href=camL};document.getElementById('pent').onclick=()=>{location.href=entL};
+    document.getElementById('pshare').onclick=async()=>{try{if(navigator.share){await navigator.share({title:'Anesthesia demo (entry phone)',text:'Open on the entry phone:',url:entL})}else{await navigator.clipboard.writeText(entL);document.getElementById('pmsg').textContent='Entry link copied. Paste it on the other phone.'}}catch(e){}}}}
 
 try{start()}catch(e){var p=document.createElement("pre");p.style.color="#a00";p.textContent=String(e&&e.stack||e);document.getElementById("demo-root").prepend(p)}</script></body></html>
