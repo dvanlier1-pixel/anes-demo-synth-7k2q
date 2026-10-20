@@ -1,4 +1,4 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="robots" content="noindex,nofollow"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Anesthesia charting demo (synthetic data only) rev 8</title><style>html,body{margin:0;background:#fff}#demo-root{--ink:#251f21;--ink2:#585254;--rule:#d9d6d7;--teal:#2f7f6d;--red:#c4202c;--sand:#f4efec}
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="robots" content="noindex,nofollow"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Anesthesia charting demo (synthetic data only) rev 9</title><style>html,body{margin:0;background:#fff}#demo-root{--ink:#251f21;--ink2:#585254;--rule:#d9d6d7;--teal:#2f7f6d;--red:#c4202c;--sand:#f4efec}
 #demo-root *{box-sizing:border-box}
 #demo-root{margin:0;font:15px/1.4 system-ui,Arial,sans-serif;color:var(--ink);background:#fff}
 #demo-root #banner{position:static;top:0;z-index:5;background:#fff4d6;border-bottom:2px solid #d9b44a;padding:6px 12px;font-weight:600;font-size:13px}
@@ -685,6 +685,7 @@ function wlInit(){document.addEventListener('visibilitychange',()=>{if(document.
 function nowStamp(){if(S.setup.timeMode==='demo')return {v:fmt(S.clock),src:'simulated demo case clock'};const d=new Date(),tz=(Intl.DateTimeFormat().resolvedOptions().timeZone||'local');return {v:String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0'),src:'device local time, '+tz}}
 function setupLabel2(k){return(SETUP_TIMES.find(t=>t[0]===k)||[k,k])[1]}
 function setupSummary(){const on=Object.keys(S.setup.checks).filter(k=>S.setup.checks[k]).map(setupLabel);return 'date '+S.setup.date+'; checked: '+on.join(', ')+'; times '+SETUP_TIMES.map(t=>t[1]+' '+(S.setup.times[t[0]]||'blank')).join(', ')}
+function camFromBar(k){try{const sel=$('#src');if(!sel)return;if(k==='as'){sel.value='cam';sel.dispatchEvent(new Event('change'));const go=$('#camstart');if(go)go.click();show('monitor')}else if(k==='ae'){if(window.__camStop)window.__camStop();sel.value='sim';sel.dispatchEvent(new Event('change'));const n=$('#srcnote');if(n)n.textContent='Camera stopped by Anesthesia STOP.'}}catch(e){}}
 let __tbTimer=0;function renderTimeBar(){if(!__tbTimer)__tbTimer=setInterval(()=>{const n=document.getElementById('tbnow');if(n)n.textContent=nowStamp().v},20000);let bar=$('#timebar');if(!bar){const nav=$('#nav');if(!nav||!nav.parentNode)return;bar=document.createElement('div');bar.id='timebar';nav.parentNode.insertBefore(bar,nav.nextSibling)}
   const s=S.setup;if(!s)return;const ns=nowStamp();
   bar.innerHTML='<div class="tbrow">'+[['as','Anesthesia','START'],['ae','Anesthesia','STOP'],['ss','Surgery','START'],['se','Surgery','STOP']].map(t=>{const v=s.times[t[0]];return '<button class="tbb'+(v?' set':'')+'" data-tb="'+t[0]+'"><span class="tbl">'+t[1]+' '+t[2]+'</span><span class="tbv">'+(v?esc(v):'tap to stamp')+'</span></button>'}).join('')+'</div><div class="small tbn">Taps stamp the '+(s.timeMode==='demo'?'simulated demo case clock':'device clock')+' (now <span id="tbnow">'+esc(ns.v)+'</span>). Tapping a set button asks before replacing. Times stay pending until you confirm the case setup (Drugs tab) and can be edited there. Nothing detects the event.</div><div class="tbn"><button class="b" id="tbshare">Share / export these stamps and readings</button> <span class="small">Opens your phone share sheet or copies text. Only you send it.</span></div><div class="tbn"><button class="b" id="wlbtn">Keep screen on</button> <span class="small" id="wlstat"></span></div>';
@@ -692,7 +693,7 @@ let __tbTimer=0;function renderTimeBar(){if(!__tbTimer)__tbTimer=setInterval(()=
   const sh=bar.querySelector('#tbshare');if(sh)sh.onclick=shareCase;
   bar.querySelectorAll('[data-tb]').forEach(b=>b.onclick=()=>{const k=b.dataset.tb,old=s.times[k],n2=nowStamp();
     if(!guardTime(k,n2.v,'time bar, '+n2.src))return;
-    setupLog(setupLabel2(k)+' time '+(old||'blank')+' to '+n2.v+' (on-screen time bar button, '+n2.src+')');s.times[k]=n2.v;renderSetup();renderChart();updateBadges()})}
+    setupLog(setupLabel2(k)+' time '+(old||'blank')+' to '+n2.v+' (on-screen time bar button, '+n2.src+')');s.times[k]=n2.v;renderSetup();renderChart();updateBadges();camFromBar(k)})}
 function setupInit(){setupInitState();const sec=$('#s-drugs');if(sec&&!$('#setupcard')){const d=document.createElement('div');d.className='card';d.id='setupcard';d.style.margin='8px 0';sec.insertBefore(d,sec.children[1]||null)}renderSetup()}
 
 /* ---------- local-only saving of synthetic test cases ---------- */
@@ -750,6 +751,7 @@ function initUI(){setupInit();saveInit();
   $('#src').onchange=e=>{S.src=e.target.value;$('#file').style.display=S.src==='img'?'':'none';$('#camstart').style.display=S.src==='cam'?'':'none';
     $('#srcnote').textContent=S.src==='cam'?'Experimental. Aim the camera only at the monitor screen, keep faces out of frame. The reader expects the Passport 2 style layout filling the frame; it is uncalibrated and has not been tested on a real monitor.':S.src==='img'?'Upload an image or screenshot of a monitor screen (use made-up or de-identified only). Stretched to the 16:9 frame. Not validated on real photos.':'';refreshView()};
   $('#file').onchange=e=>{const f=e.target.files[0];if(!f)return;const im=new Image();im.onload=()=>{S.srcImg=im;refreshView()};im.src=URL.createObjectURL(f)};
+  window.__camStop=()=>{try{S.stream&&S.stream.getTracks().forEach(t=>t.stop())}catch(e){}S.stream=null;try{vid.srcObject=null}catch(e){}};
   $('#camstart').onclick=async()=>{const note=$('#srcnote');try{if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){note.textContent='Camera not available: this browser or page does not offer camera access (needs https and a current browser).';return}
     try{S.stream&&S.stream.getTracks().forEach(t=>t.stop())}catch(e){}S.stream=null;note.textContent='Starting camera...';
     const dev=S.camId?{deviceId:{exact:S.camId}}:{};
